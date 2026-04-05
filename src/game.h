@@ -20,7 +20,8 @@ private:
     bool gameStarted;           // 游戏是否已开始
     bool gameOver;              // 游戏是否结束
     bool win;                   // 是否胜利
-    int score;                  // 当前得分
+    int score;       
+    int lives;      // 当前得分和生命值
     
     const int STEPS = 120;       // 分段移动步数（防止穿透）
 
@@ -36,6 +37,7 @@ private:
     void Reset();                   // 重置游戏
     void LoadFont();                // 加载中文字体
     void DrawChineseText(const char* text, int x, int y, int fontSize, Color color);  // 绘制中文
+    void DrawHearts(); 
 };
 
 #endif
