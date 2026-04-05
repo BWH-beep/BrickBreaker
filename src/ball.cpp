@@ -24,7 +24,7 @@ void Ball::Draw() {
 
 void Ball::Start() {
     moving = true;
-    speed = { 200, -200 };
+    speed = { 300, -300 };
 }
 
 void Ball::Stop() {
@@ -45,6 +45,14 @@ void Ball::SetPositionX(float x) {
 
 void Ball::SetPositionY(float y) {
     position.y = y;
+}
+
+void Ball::SetPosition(Vector2 newPos) {
+    position = newPos;
+}
+
+void Ball::SetSpeed(Vector2 newSpeed) {
+    speed = newSpeed;
 }
 
 void Ball::AddSpeedX(float delta) {

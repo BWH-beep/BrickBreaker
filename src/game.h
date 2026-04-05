@@ -22,7 +22,7 @@ private:
     bool win;                   // 是否胜利
     int score;                  // 当前得分
     
-    const int STEPS = 30;       // 分段移动步数（防止穿透）
+    const int STEPS = 120;       // 分段移动步数（防止穿透）
 
 public:
     Game(int width, int height);    // 构造函数

@@ -1,4 +1,34 @@
 #include "game.h"
+#include <cmath>
+
+// 线段与矩形碰撞检测函数
+bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitPoint) {
+    // 检查矩形的四条边
+    Vector2 edges[4][2] = {
+        {{rect.x, rect.y}, {rect.x + rect.width, rect.y}},
+        {{rect.x + rect.width, rect.y}, {rect.x + rect.width, rect.y + rect.height}},
+        {{rect.x + rect.width, rect.y + rect.height}, {rect.x, rect.y + rect.height}},
+        {{rect.x, rect.y + rect.height}, {rect.x, rect.y}}
+    };
+    
+    for (int i = 0; i < 4; i++) {
+        Vector2 p1 = edges[i][0];
+        Vector2 p2 = edges[i][1];
+        
+        float denom = (p2.y - p1.y) * (end.x - start.x) - (p2.x - p1.x) * (end.y - start.y);
+        if (fabs(denom) < 0.0001f) continue;
+        
+        float ua = ((p2.x - p1.x) * (start.y - p1.y) - (p2.y - p1.y) * (start.x - p1.x)) / denom;
+        float ub = ((end.x - start.x) * (start.y - p1.y) - (end.y - start.y) * (start.x - p1.x)) / denom;
+        
+        if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+            hitPoint.x = start.x + ua * (end.x - start.x);
+            hitPoint.y = start.y + ua * (end.y - start.y);
+            return true;
+        }
+    }
+    return false;
+}
 
 Game::Game(int width, int height) 
     : screenWidth(width), screenHeight(height), 
@@ -51,11 +81,13 @@ void Game::Update(float dt) {
         float stepDt = dt / STEPS;
         
         for (int step = 0; step < STEPS; step++) {
+            Vector2 oldPos = ball.GetPosition();
             ball.Update(stepDt);
             
-            // 墙壁碰撞
             Vector2 ballPos = ball.GetPosition();
             float ballRadius = ball.GetRadius();
+            
+            // 墙壁碰撞
             if (ballPos.x - ballRadius < 0) {
                 ball.SetPositionX(ballRadius);
                 ball.BounceX();
@@ -69,24 +101,42 @@ void Game::Update(float dt) {
                 ball.BounceY();
             }
             
-            // 板子碰撞
+            // 板子碰撞 - 使用线段检测
             Rectangle paddleRect = paddle.GetRect();
-            if (CheckCollisionCircleRec(ball.GetPosition(), ball.GetRadius(), paddleRect)) {
+            Vector2 currentPos = ball.GetPosition();
+            Vector2 hitPoint;
+            
+            // 扩展矩形（考虑球的半径）
+            Rectangle expandedRect = {
+                paddleRect.x - ballRadius,
+                paddleRect.y - ballRadius,
+                paddleRect.width + ballRadius * 2,
+                paddleRect.height + ballRadius * 2
+            };
+            
+            if (LineRectCollision(oldPos, currentPos, expandedRect, hitPoint)) {
                 if (ball.GetSpeed().y > 0) {
-                    float hitPos = (ball.GetPosition().x - paddle.GetPosition().x) / (paddle.GetSize().x / 2);
+                    float hitPos = (hitPoint.x - paddle.GetPosition().x) / (paddle.GetSize().x / 2);
                     if (hitPos > 1) hitPos = 1;
                     if (hitPos < -1) hitPos = -1;
                     
                     ball.BounceY();
                     ball.AddSpeedX(hitPos * 150);
-                    ball.ClampSpeed(400);
-                    ball.SetPositionY(paddle.GetRect().y - ball.GetRadius());
+                    ball.ClampSpeed(500);
+                    ball.SetPositionY(paddleRect.y - ballRadius);
                 }
             }
             
             // 砖块碰撞
             Vector2 ballSpeed = ball.GetSpeed();
-            bricks.CheckCollision(ball.GetPosition(), ball.GetRadius(), ballSpeed, score);
+            bool hit;
+            int loopCount = 0;
+            do {
+                hit = bricks.CheckCollision(ball.GetPosition(), ballRadius, ballSpeed, score);
+                loopCount++;
+                if (loopCount > 10) break;
+            } while (hit);
+            ball.SetSpeed(ballSpeed);
         }
         
         if (ball.IsOutOfScreen(screenHeight)) {

@@ -1,4 +1,6 @@
 #include "brick.h"
+#include <cmath>
+#include <cstdio>
 
 BrickManager::BrickManager(int width) {
     screenWidth = width;
@@ -45,7 +47,7 @@ bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ba
             Rectangle brickRect = { brick.x, brick.y, brick.width, brick.height };
             if (CheckCollisionCircleRec(ballPos, ballRadius, brickRect)) {
                 brick.active = false;
-                ballSpeed.y *= -1;
+                ballSpeed.y = -ballSpeed.y;
                 score += 10;
                 return true;
             }
