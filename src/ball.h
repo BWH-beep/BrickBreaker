@@ -14,7 +14,7 @@ public:
     Ball();
     void Update(float dt);
     void Draw();
-    void Start();
+    void Start(float speedX, float speedY);
     void Stop();
     void Reset();
     void BounceX();

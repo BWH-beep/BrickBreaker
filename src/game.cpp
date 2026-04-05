@@ -33,6 +33,8 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
 Game::Game(int width, int height) 
     : screenWidth(width), screenHeight(height), 
       paddle(width, height), bricks(width) {
+    config = Config::load("config.json");  // 加载配置
+    steps = config.steps;                   // 使用配置的步数
     InitWindow(screenWidth, screenHeight, "打砖块");
     LoadFont();
     Reset();
@@ -59,7 +61,7 @@ void Game::Reset() {
     bricks.Reset();
     state = GameState::WAITING;
     score = 0;
-    lives=3;
+    lives = config.initialLives; 
 }
 
 void Game::ProcessInput() {
@@ -67,7 +69,7 @@ void Game::ProcessInput() {
     case GameState::WAITING:
         if (IsKeyPressed(KEY_SPACE)) {
             state = GameState::PLAYING;
-            ball.Start();
+            ball.Start(config.ballSpeedX, config.ballSpeedY);
         }
         break;
         
@@ -87,9 +89,9 @@ void Game::Update(float dt) {
     paddle.Update(dt);
     
     if (state == GameState::PLAYING){
-        float stepDt = dt / STEPS;
+        float stepDt = dt / steps;
         
-        for (int step = 0; step < STEPS; step++) {
+        for (int step = 0; step < steps; step++) {
             Vector2 oldPos = ball.GetPosition();
             ball.Update(stepDt);
             

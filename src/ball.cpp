@@ -22,9 +22,9 @@ void Ball::Draw() {
     DrawCircleV(position, radius, YELLOW);
 }
 
-void Ball::Start() {
+void Ball::Start(float speedX, float speedY) {
     moving = true;
-    speed = { 300, -300 };
+    speed = { speedX, speedY};
 }
 
 void Ball::Stop() {

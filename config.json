@@ -1,0 +1,17 @@
+{
+    "screenWidth": 800,
+    "screenHeight": 600,
+    "ballRadius": 8,
+    "ballSpeedX": 350,
+    "ballSpeedY": -350,
+    "paddleWidth": 120,
+    "paddleHeight": 15,
+    "paddleSpeed": 500,
+    "brickWidth": 70,
+    "brickHeight": 25,
+    "brickSpacing": 5,
+    "brickRows": 5,
+    "brickCols": 10,
+    "initialLives": 3,
+    "steps": 120
+}

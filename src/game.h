@@ -5,13 +5,14 @@
 #include "paddle.h"
 #include "brick.h"
 #include "raylib.h"
+#include "Config.h" 
 #include <cstdio>
 
 class Game {
 private:
     const int screenWidth;      // 屏幕宽度（800）
     const int screenHeight;     // 屏幕高度（600）
-    
+    Config config;   
     Ball ball;                  // 球对象
     Paddle paddle;              // 板子对象
     BrickManager bricks;        // 砖块管理器对象
@@ -28,7 +29,7 @@ private:
     int score;       
     int lives;      // 当前得分和生命值
     
-    const int STEPS = 120;       // 分段移动步数（防止穿透）
+    int steps;      // 分段移动步数（防止穿透）
 
 public:
     Game(int width, int height);    // 构造函数
