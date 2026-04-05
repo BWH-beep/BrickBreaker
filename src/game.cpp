@@ -57,28 +57,36 @@ void Game::Reset() {
     ball.Reset();
     paddle.Reset();
     bricks.Reset();
-    gameStarted = false;
-    gameOver = false;
-    win = false;
+    state = GameState::WAITING;
     score = 0;
     lives=3;
 }
 
 void Game::ProcessInput() {
-    if (!gameStarted && !gameOver && !win && IsKeyPressed(KEY_SPACE)) {
-        gameStarted = true;
-        ball.Start();
-    }
-    
-    if ((gameOver || win) && IsKeyPressed(KEY_SPACE)) {
-        Reset();
-    }
+    switch (state) {
+    case GameState::WAITING:
+        if (IsKeyPressed(KEY_SPACE)) {
+            state = GameState::PLAYING;
+            ball.Start();
+        }
+        break;
+        
+    case GameState::GAMEOVER:
+    case GameState::WIN:
+        if (IsKeyPressed(KEY_SPACE)) {
+            Reset();
+        }
+        break;
+        
+    default:
+        break;
+}
 }
 
 void Game::Update(float dt) {
     paddle.Update(dt);
     
-    if (!gameOver && !win && gameStarted) {
+    if (state == GameState::PLAYING){
         float stepDt = dt / STEPS;
         
         for (int step = 0; step < STEPS; step++) {
@@ -143,18 +151,18 @@ void Game::Update(float dt) {
         if (ball.IsOutOfScreen(screenHeight)) {
             lives--;
             if (lives <= 0) {
-                gameOver = true;
+                state = GameState::GAMEOVER;
                 ball.Stop();
             } else {
                 ball.Reset();
                 paddle.Reset();
-                gameStarted = false;
+                state = GameState::WAITING;
                 ball.Stop();
     }
         }
         
         if (bricks.AllCleared()) {
-            win = true;
+             state = GameState::WIN;
             ball.Stop();
         }
     }
@@ -178,12 +186,12 @@ void Game::Draw() {
     // 绘制血条（心形）
     DrawHearts();
     
-    if (!gameStarted && !gameOver && !win) {
+    if (state == GameState::WAITING) {
         DrawChineseText("按空格键开始游戏", screenWidth/2 - 130, screenHeight/2, 28, YELLOW);
         DrawChineseText("左右键移动板子", screenWidth/2 - 100, screenHeight/2 + 50, 24, WHITE);
     }
     
-    if (gameOver) {
+    if (state == GameState::GAMEOVER){
         DrawChineseText("游戏结束", screenWidth/2 - 70, screenHeight/2 - 60, 48, RED);
         char finalScore[50];
         sprintf(finalScore, "最终得分: %d", score);
@@ -191,7 +199,7 @@ void Game::Draw() {
         DrawChineseText("按空格键重新开始", screenWidth/2 - 110, screenHeight/2 + 40, 24, WHITE);
     }
     
-    if (win && !gameOver) {
+    if (state == GameState::WIN) {
         DrawChineseText("胜利", screenWidth/2 - 40, screenHeight/2 - 60, 56, GREEN);
         char finalScore[50];
         sprintf(finalScore, "最终得分: %d", score);

@@ -16,10 +16,15 @@ private:
     Paddle paddle;              // 板子对象
     BrickManager bricks;        // 砖块管理器对象
     Font chineseFont;           // 中文字体
-    
-    bool gameStarted;           // 游戏是否已开始
-    bool gameOver;              // 游戏是否结束
-    bool win;                   // 是否胜利
+      
+    enum class GameState {
+    WAITING,   // 等待开始
+    PLAYING,   // 游戏中
+    GAMEOVER,  // 游戏结束
+    WIN        // 胜利
+};
+
+    GameState state;  // 当前游戏状态           // 是否胜利
     int score;       
     int lives;      // 当前得分和生命值
     
