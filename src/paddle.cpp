@@ -1,4 +1,5 @@
 #include "paddle.h"
+#include <cstdio> 
 
 Paddle::Paddle(int width, int height) {
     screenWidth = width;
@@ -9,16 +10,19 @@ Paddle::Paddle(int width, int height) {
 }
 
 void Paddle::Update(float dt) {
-    if (IsKeyDown(KEY_LEFT) && position.x - size.x/2 > 0) {
+    if (IsKeyDown(KEY_LEFT) && position.x - size.x/2 >= 0) {
         position.x -= speed * dt;
     }
-    if (IsKeyDown(KEY_RIGHT) && position.x + size.x/2 < screenWidth) {
+    if (IsKeyDown(KEY_RIGHT) && position.x + size.x/2 <= screenWidth) {
         position.x += speed * dt;
     }
 }
 
-void Paddle::Draw() {
+/*void Paddle::Draw() {
     DrawRectangleV(position, size, BLUE);
+}*/
+void Paddle::Draw() {
+    DrawRectangle(position.x - size.x/2, position.y - size.y/2, size.x, size.y, BLUE);
 }
 
 void Paddle::Reset() {

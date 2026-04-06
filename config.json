@@ -5,7 +5,7 @@
     "ballSpeedX": 350,
     "ballSpeedY": -350,
     "paddleWidth": 120,
-    "paddleHeight": 15,
+    "paddleHeight": 20,
     "paddleSpeed": 500,
     "brickWidth": 70,
     "brickHeight": 25,
@@ -13,5 +13,5 @@
     "brickRows": 5,
     "brickCols": 10,
     "initialLives": 3,
-    "steps": 120
+    "steps": 360
 }
