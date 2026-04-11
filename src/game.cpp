@@ -38,10 +38,12 @@ Game::Game(int width, int height)
     InitWindow(screenWidth, screenHeight, "打砖块");
     LoadFont();
     Reset();
+    background = LoadTexture("assets/images/t04bc12585fc9f34567(1).png");
 }
 
 Game::~Game() {
     UnloadFont(chineseFont);
+    UnloadTexture(background);
     CloseWindow();
 }
 
@@ -176,6 +178,10 @@ void Game::DrawChineseText(const char* text, int x, int y, int fontSize, Color c
 
 void Game::Draw() {
     BeginDrawing();
+    /*DrawTexture(background, 0, 0, WHITE);*/
+    Rectangle srcRect = { 0, 0, (float)background.width, (float)background.height };
+    Rectangle dstRect = { 0, 0, (float)screenWidth, (float)screenHeight };
+    DrawTexturePro(background, srcRect, dstRect, (Vector2){0, 0}, 0, WHITE);
     ClearBackground(BLACK);
     
     bricks.Draw();

@@ -10,6 +10,7 @@
 
 class Game {
 private:
+    Texture2D background;  // 声明一个纹理变量，用来存储图片
     const int screenWidth;      // 屏幕宽度（800）
     const int screenHeight;     // 屏幕高度（600）
     Config config;   
