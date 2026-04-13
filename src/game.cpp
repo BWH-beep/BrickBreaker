@@ -38,6 +38,7 @@ Game::Game(int width, int height)
     steps = config.steps;                   // 使用配置的步数
     InitWindow(screenWidth, screenHeight, "打砖块");
     LoadFont();
+    powerUpTexture = LoadTexture("assets/images/powerup.png");
     // 初始化计时器
     for (int i = 0; i < 5; i++) {
     powerUpTimer[i] = 0.0f;
@@ -54,6 +55,7 @@ Game::Game(int width, int height)
 Game::~Game() {
     UnloadFont(chineseFont);
     UnloadTexture(background);
+    UnloadTexture(powerUpTexture);
     CloseWindow();
 }
 
@@ -349,7 +351,7 @@ void Game::UpdatePowerUps(float dt) {
         
         // 检查是否被板子接住
         Rectangle paddleRect = paddle.GetRect();
-        if (CheckCollisionCircleRec(p.position, 10, paddleRect)) {
+        if (CheckCollisionCircleRec(p.position, 20, paddleRect)) {
             ApplyPowerUp(p.type);
             p.active = false;
         }
@@ -361,36 +363,8 @@ void Game::UpdatePowerUps(float dt) {
 }
 void Game::DrawPowerUps() {
     for (const auto& p : powerUps) {
-        // 星星形状（11x11 像素点阵）
-        int star[11][11] = {
-            {0,0,0,0,0,1,0,0,0,0,0},
-            {0,0,0,0,1,1,1,0,0,0,0},
-            {0,0,0,1,1,1,1,1,0,0,0},
-            {0,0,1,1,1,1,1,1,1,0,0},
-            {0,1,1,1,1,1,1,1,1,1,0},
-            {1,1,1,1,1,1,1,1,1,1,1},
-            {0,1,1,1,1,1,1,1,1,1,0},
-            {0,0,1,1,1,1,1,1,1,0,0},
-            {0,0,0,1,1,1,1,1,0,0,0},
-            {0,0,0,0,1,1,1,0,0,0,0},
-            {0,0,0,0,0,1,0,0,0,0,0}
-        };
-        
-        Color color;
-        switch (p.type) {
-            case 0: color = GREEN; break;
-            case 1: color = RED; break;
-            case 2: color = YELLOW; break;
-            case 3: color = BLUE; break;
-            case 4: color = MAGENTA; break;
-        }
-        
-        for (int row = 0; row < 11; row++) {
-            for (int col = 0; col < 11; col++) {
-                if (star[row][col] == 1) {
-                    DrawPixel(p.position.x + col - 5, p.position.y + row - 5, color);
-                }
-            }
+        if (p.active) {
+            DrawTextureEx(powerUpTexture, p.position, 0, 0.01f, WHITE); 
         }
     }
 }

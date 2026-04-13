@@ -52,7 +52,7 @@ bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ba
                 score += 10;
                 
                 // 10% 概率掉落道具
-                if (GetRandomValue(0, 100) < 10) {
+                if (GetRandomValue(0, 100) < 50) {
                     dropPowerUp = true;
                     dropPos = { brick.x + brick.width/2, brick.y + brick.height/2 };
                 }
