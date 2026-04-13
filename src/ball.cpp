@@ -25,6 +25,7 @@ void Ball::Draw() {
 void Ball::Start(float speedX, float speedY) {
     moving = true;
     speed = { speedX, speedY};
+    originalSpeed = speed; 
 }
 
 void Ball::Stop() {
@@ -45,14 +46,6 @@ void Ball::SetPositionX(float x) {
 
 void Ball::SetPositionY(float y) {
     position.y = y;
-}
-
-void Ball::SetPosition(Vector2 newPos) {
-    position = newPos;
-}
-
-void Ball::SetSpeed(Vector2 newSpeed) {
-    speed = newSpeed;
 }
 
 void Ball::AddSpeedX(float delta) {
@@ -84,4 +77,15 @@ bool Ball::IsMoving() {
 
 bool Ball::IsOutOfScreen(int screenHeight) {
     return position.y + radius > screenHeight;
+}
+void Ball::SetSpeed(Vector2 newSpeed) {
+    speed = newSpeed;
+}
+
+void Ball::SetPosition(Vector2 newPos) {
+    position = newPos;
+}
+
+Vector2 Ball::GetOriginalSpeed() {
+    return originalSpeed;
 }

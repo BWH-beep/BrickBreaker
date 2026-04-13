@@ -16,6 +16,7 @@ public:
     void Update(float dt);          // 根据左右键移动
     void Draw();                    // 绘制板子
     void Reset();                   // 重置到初始位置
+    void SetWidth(float newWidth);
     
     Vector2 GetPosition();          // 获取位置
     Vector2 GetSize();              // 获取尺寸

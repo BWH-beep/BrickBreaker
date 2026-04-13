@@ -41,14 +41,21 @@ void BrickManager::Draw() {
     }
 }
 
-bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ballSpeed, int& score) {
+bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ballSpeed, int& score, 
+                                   bool& dropPowerUp, Vector2& dropPos) {
     for (auto& brick : bricks) {
         if (brick.active) {
             Rectangle brickRect = { brick.x, brick.y, brick.width, brick.height };
             if (CheckCollisionCircleRec(ballPos, ballRadius, brickRect)) {
                 brick.active = false;
-                ballSpeed.y = -ballSpeed.y;
+                ballSpeed.y *= -1;
                 score += 10;
+                
+                // 10% 概率掉落道具
+                if (GetRandomValue(0, 100) < 10) {
+                    dropPowerUp = true;
+                    dropPos = { brick.x + brick.width/2, brick.y + brick.height/2 };
+                }
                 return true;
             }
         }

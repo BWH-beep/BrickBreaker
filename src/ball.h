@@ -9,6 +9,7 @@ private:
     Vector2 speed;
     float radius;
     bool moving;
+    Vector2 originalSpeed;
 
 public:
     Ball();
@@ -21,8 +22,6 @@ public:
     void BounceY();
     void SetPositionX(float x);
     void SetPositionY(float y);
-    void SetPosition(Vector2 newPos);
-    void SetSpeed(Vector2 newSpeed);
     void AddSpeedX(float delta);
     void ClampSpeed(float maxSpeed);
     
@@ -31,6 +30,9 @@ public:
     float GetRadius();
     bool IsMoving();
     bool IsOutOfScreen(int screenHeight);
+    void SetSpeed(Vector2 newSpeed);
+    void SetPosition(Vector2 newPos);
+    Vector2 GetOriginalSpeed();
 };
 
 #endif

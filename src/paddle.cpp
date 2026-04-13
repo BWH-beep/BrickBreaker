@@ -40,3 +40,6 @@ Vector2 Paddle::GetSize() {
 Rectangle Paddle::GetRect() {
     return { position.x - size.x/2, position.y - size.y/2, size.x, size.y };
 }
+void Paddle::SetWidth(float newWidth) {
+    size.x = newWidth;
+}

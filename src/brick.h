@@ -27,7 +27,7 @@ public:
     BrickManager(int width);            // 构造函数
     void Reset();                       // 重置/创建所有砖块
     void Draw();                        // 绘制所有砖块
-    bool CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ballSpeed, int& score);  // 碰撞检测
+    bool CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ballSpeed, int& score,bool& dropPowerUp, Vector2& dropPos);
     bool AllCleared();                  // 检查是否所有砖块都被打掉了
 };
 
