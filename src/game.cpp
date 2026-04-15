@@ -114,6 +114,31 @@ void Game::ProcessInput() {
 }
 
 void Game::Update(float dt) {
+    bricks.UpdateParticles(dt);
+    // 更新闪光特效
+    if (flash.life > 0) {
+        flash.life -= dt;
+    }
+    
+    // 更新漂浮文字
+    for (int i = floatingTexts.size() - 1; i >= 0; i--) {
+        floatingTexts[i].pos.y -= 50 * dt;
+        floatingTexts[i].life -= dt;
+        if (floatingTexts[i].life <= 0) {
+            floatingTexts.erase(floatingTexts.begin() + i);
+        }
+    }
+    
+    // 更新特效粒子
+    for (int i = effectParticles.size() - 1; i >= 0; i--) {
+        effectParticles[i].pos.x += effectParticles[i].vel.x * dt;
+        effectParticles[i].pos.y += effectParticles[i].vel.y * dt;
+        effectParticles[i].life -= dt;
+        if (effectParticles[i].life <= 0) {
+            effectParticles.erase(effectParticles.begin() + i);
+        }
+    }
+    
     paddle.Update(dt);
     
     // 更新道具系统
@@ -122,7 +147,6 @@ void Game::Update(float dt) {
     if (state == GameState::PLAYING) {
         float stepDt = dt / steps;
         
-        // 遍历所有球
         for (auto& ball : balls) {
             for (int step = 0; step < steps; step++) {
                 Vector2 oldPos = ball.GetPosition();
@@ -172,37 +196,38 @@ void Game::Update(float dt) {
                 
                 // 砖块碰撞
                 Vector2 ballSpeed = ball.GetSpeed();
-                bool hit;
                 bool dropPowerUp = false;
+                bool hitEvil = false;
                 Vector2 dropPos;
-                int loopCount = 0;
-                do {
-                    hit = bricks.CheckCollision(ball.GetPosition(), ballRadius, ballSpeed, score, dropPowerUp, dropPos);
-                    if (dropPowerUp) {
-                        SpawnPowerUp(dropPos, GetRandomValue(0, 4));
-                        dropPowerUp = false;
-                    }
-                    loopCount++;
-                    if (loopCount > 10) break;
-                } while (hit);
-                ball.SetSpeed(ballSpeed);
+                
+                bool hit = bricks.CheckCollision(ball.GetPosition(), ballRadius, ballSpeed, score, dropPowerUp, dropPos, hitEvil);
+                
+                if (hitEvil) {
+                    state = GameState::GAMEOVER;
+                    ball.Stop();
+                    return;
+                }
+                if (hit) {
+                    ball.SetSpeed(ballSpeed);
+                }
+                if (dropPowerUp) {
+                    SpawnPowerUp(dropPos, GetRandomValue(0, 4));
+                }
             }
         }
         
-        // 检查球掉底（遍历所有球，移除掉底的）
+        // 检查球掉底
         for (int i = balls.size() - 1; i >= 0; i--) {
             if (balls[i].IsOutOfScreen(screenHeight)) {
                 balls.erase(balls.begin() + i);
             }
         }
         
-        // 如果没有球了，扣一条命
         if (balls.empty()) {
             lives--;
             if (lives <= 0) {
                 state = GameState::GAMEOVER;
             } else {
-                // 重置一个球
                 balls.clear();
                 balls.push_back(Ball());
                 balls[0].Reset();
@@ -223,20 +248,21 @@ void Game::DrawChineseText(const char* text, int x, int y, int fontSize, Color c
 void Game::Draw() {
     BeginDrawing();
     
-    Rectangle srcRect = { 0, 0, (float)background.width, (float)background.height };
-    Rectangle dstRect = { 0, 0, (float)screenWidth, (float)screenHeight };
-    DrawTexturePro(background, srcRect, dstRect, (Vector2){0, 0}, 0, WHITE);
+    // 背景铺满屏幕
+    float scaleX = (float)screenWidth / background.width;
+    float scaleY = (float)screenHeight / background.height;
+    float scale = (scaleX > scaleY) ? scaleX : scaleY;
+    float drawX = (screenWidth - background.width * scale) / 2;
+    float drawY = (screenHeight - background.height * scale) / 2;
+    DrawTextureEx(background, (Vector2){drawX, drawY}, 0, scale, WHITE);
     
     bricks.Draw();
     
-    // 绘制所有球
     for (auto& b : balls) {
         b.Draw();
     }
     
     paddle.Draw();
-    
-    // 绘制道具
     DrawPowerUps();
     
     char scoreText[50];
@@ -265,6 +291,26 @@ void Game::Draw() {
         DrawChineseText("按空格键重新开始", screenWidth/2 - 110, screenHeight/2 + 40, 24, WHITE);
     }
     
+    // ========== 特效绘制 ==========
+    // 全屏闪光
+    if (flash.life > 0) {
+        float alpha = flash.intensity * flash.life * 2;
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(WHITE, alpha));
+    }
+    
+    // 漂浮文字
+    for (const auto& ft : floatingTexts) {
+        int fontSize = 28 * (1.0f + (1.0f - ft.life));
+        DrawTextEx(chineseFont, ft.text, ft.pos, fontSize, 2, Fade(ft.color, ft.life));
+    }
+    
+    // 特效粒子
+    for (const auto& p : effectParticles) {
+        float size = p.size * (1.0f + (1.0f - p.life));
+        DrawCircleV(p.pos, size, Fade(p.color, p.life * 1.5f));
+    }
+    // ===========================
+    
     EndDrawing();
 }
 void Game::Run() {
@@ -285,36 +331,136 @@ void Game::SpawnPowerUp(Vector2 pos, int type) {
     powerUps.push_back(p);
 }
 void Game::ApplyPowerUp(int type) {
+    Vector2 center = paddle.GetPosition();
+    center.y -= 20;
+    
     switch (type) {
         case 0: // 加长板子
             originalPaddleWidth = paddle.GetSize().x;
-            paddle.SetWidth(originalPaddleWidth * 1.5f);
-            powerUpTimer[0] = 5.0f;  // 持续5秒
+            paddle.SetWidth(originalPaddleWidth * 2.0f);
+            powerUpTimer[0] = 6.0f;
+            // 金色光环特效
+            for (int i = 0; i < 80; i++) {
+                EffectParticle p;
+                p.pos = center;
+                float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                float speed = (float)GetRandomValue(200, 600);
+                p.vel = { cos(angle) * speed, sin(angle) * speed };
+                p.life = 0.8f;
+                p.size = 4;
+                p.color = GOLD;
+                effectParticles.push_back(p);
+            }
+            flash.intensity = 0.8f;
+            flash.life = 0.3f;
             break;
-        case 1: // 缩短板子
+            
+        case 1: // 缩短板子（敌方效果）
             originalPaddleWidth = paddle.GetSize().x;
-            paddle.SetWidth(originalPaddleWidth * 0.7f);
+            paddle.SetWidth(originalPaddleWidth * 0.5f);
             powerUpTimer[1] = 5.0f;
-            break;
-        case 2: // 多球
-            if (balls.size() < 5) {  // 最多5个球
-                Ball newBall = balls[0];  // 复制第一个球
-                newBall.SetPosition(balls[0].GetPosition());
-                newBall.SetSpeed(balls[0].GetSpeed());
-                balls.push_back(newBall);
+            // 暗紫色特效
+            for (int i = 0; i < 60; i++) {
+                EffectParticle p;
+                p.pos = center;
+                float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                float speed = (float)GetRandomValue(150, 450);
+                p.vel = { cos(angle) * speed, sin(angle) * speed };
+                p.life = 0.6f;
+                p.size = 5;
+                p.color = DARKPURPLE;
+                effectParticles.push_back(p);
             }
             break;
+            
+        case 2: // 多球（终极爆炸）
+            {
+                // 超大爆炸光环
+                for (int r = 0; r < 3; r++) {
+                    for (int i = 0; i < 120; i++) {
+                        EffectParticle p;
+                        p.pos = center;
+                        float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                        float speed = (float)GetRandomValue(300, 800);
+                        p.vel = { cos(angle) * speed, sin(angle) * speed };
+                        p.life = 0.7f - r * 0.1f;
+                        p.size = (r == 0) ? 6 : 3;
+                        if (r == 0) p.color = ORANGE;
+                        else if (r == 1) p.color = YELLOW;
+                        else p.color = RED;
+                        effectParticles.push_back(p);
+                    }
+                }
+                
+                // 产生8-12个新球
+                int newBallsCount = GetRandomValue(8, 12);
+                for (int i = 0; i < newBallsCount; i++) {
+                    Ball newBall = balls[0];
+                    float angle = (float)i * (360.0f / newBallsCount) * DEG2RAD;
+                    float radius = 60.0f;
+                    Vector2 offset = { cos(angle) * radius, sin(angle) * radius };
+                    newBall.SetPosition({ center.x + offset.x, center.y + offset.y });
+                    Vector2 speed = { cos(angle) * 350, sin(angle) * 350 };
+                    newBall.SetSpeed(speed);
+                    newBall.Start(speed.x, speed.y);
+                    balls.push_back(newBall);
+                }
+                
+                // 屏幕强烈震动
+                shakeTime = 0.5f;
+                flash.intensity = 1.0f;
+                flash.life = 0.4f;
+                
+                // 加分文字
+                FloatingText ft;
+                ft.pos = center;
+                sprintf(ft.text, "+%d BALLS!", newBallsCount);
+                ft.life = 1.0f;
+                ft.color = YELLOW;
+                floatingTexts.push_back(ft);
+                break;
+            }
+            
         case 3: // 慢速球
             for (auto& b : balls) {
                 Vector2 spd = b.GetSpeed();
-                spd.x *= 0.5f;
-                spd.y *= 0.5f;
+                spd.x *= 0.3f;
+                spd.y *= 0.3f;
                 b.SetSpeed(spd);
             }
             powerUpTimer[3] = 5.0f;
+            // 蓝色冰冻特效
+            for (int i = 0; i < 50; i++) {
+                EffectParticle p;
+                p.pos = center;
+                p.vel = { (float)GetRandomValue(-200, 200), (float)GetRandomValue(-300, 100) };
+                p.life = 0.5f;
+                p.size = 4;
+                p.color = SKYBLUE;
+                effectParticles.push_back(p);
+            }
             break;
+            
         case 4: // 加分
-            score += 50;
+            score += 100;
+            // 金币爆炸特效
+            for (int i = 0; i < 100; i++) {
+                EffectParticle p;
+                p.pos = center;
+                float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                float speed = (float)GetRandomValue(200, 500);
+                p.vel = { cos(angle) * speed, sin(angle) * speed };
+                p.life = 0.6f;
+                p.size = (i % 2 == 0) ? 5 : 3;
+                p.color = GOLD;
+                effectParticles.push_back(p);
+            }
+            FloatingText ft;
+            ft.pos = center;
+            sprintf(ft.text, "+100");
+            ft.life = 1.0f;
+            ft.color = GOLD;
+            floatingTexts.push_back(ft);
             break;
     }
 }

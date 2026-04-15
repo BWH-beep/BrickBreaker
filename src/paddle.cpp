@@ -22,7 +22,11 @@ void Paddle::Update(float dt) {
     DrawRectangleV(position, size, BLUE);
 }*/
 void Paddle::Draw() {
-    DrawRectangle(position.x - size.x/2, position.y - size.y/2, size.x, size.y, BLUE);
+    // 发光效果
+    DrawRectangle(position.x - size.x/2 - 2, position.y - size.y/2 - 2, 
+                  size.x + 4, size.y + 4, Fade(BLUE, 0.3f));
+    DrawRectangle(position.x - size.x/2, position.y - size.y/2, 
+                  size.x, size.y, BLUE);
 }
 
 void Paddle::Reset() {

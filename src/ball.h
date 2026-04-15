@@ -2,6 +2,7 @@
 #define BALL_H
 
 #include "raylib.h"
+#include <vector>
 
 class Ball {
 private:
@@ -10,6 +11,7 @@ private:
     float radius;
     bool moving;
     Vector2 originalSpeed;
+    std::vector<Vector2> trail;  // 拖尾历史位置
 
 public:
     Ball();
@@ -22,6 +24,7 @@ public:
     void BounceY();
     void SetPositionX(float x);
     void SetPositionY(float y);
+    void SetPosition(Vector2 newPos);
     void AddSpeedX(float delta);
     void ClampSpeed(float maxSpeed);
     
@@ -31,7 +34,6 @@ public:
     bool IsMoving();
     bool IsOutOfScreen(int screenHeight);
     void SetSpeed(Vector2 newSpeed);
-    void SetPosition(Vector2 newPos);
     Vector2 GetOriginalSpeed();
 };
 
