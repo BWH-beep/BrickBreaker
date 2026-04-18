@@ -33,11 +33,11 @@ void BrickManager::Reset() {
             brick.isExplosive = false;
             
             int rand = GetRandomValue(0, 100);
-            if (rand < 5) {
+            if (rand < 2) {  // 2% 邪恶砖块
                 brick.isEvil = true;
                 brick.color = BLACK;
             }
-            else if (rand < 35) {  // 30% 爆炸砖块
+            else if (rand < 10) {  // 8% 爆炸砖块
                 brick.isExplosive = true;
                 brick.color = ORANGE;
             }
@@ -55,13 +55,18 @@ void BrickManager::Draw() {
             Color drawColor = brick.color;
             
             if (brick.isExplosive) {
-                // 爆炸砖块闪烁
                 float blink = (sin(time * 8.0f) + 1.0f) / 2.0f;
                 drawColor = ColorAlpha(brick.color, 0.5f + 0.5f * blink);
                 DrawRectangle(brick.x, brick.y, brick.width, brick.height, drawColor);
                 DrawRectangleLines(brick.x, brick.y, brick.width, brick.height, RED);
-                // 绘制爆炸标志
-                DrawText("X", brick.x + brick.width/2 - 8, brick.y + 5, 20, RED);
+                
+                // 画叉叉
+                float cx = brick.x + brick.width / 2;
+                float cy = brick.y + brick.height / 2;
+                DrawLine(cx - 6, cy - 6, cx + 6, cy + 6, RED);
+                DrawLine(cx + 6, cy - 6, cx - 6, cy + 6, RED);
+                DrawLine(cx - 7, cy - 7, cx + 7, cy + 7, RED);
+                DrawLine(cx + 7, cy - 7, cx - 7, cy + 7, RED);
             }
             else if (!brick.isEvil) {
                 float blink = (sin(time * 5.0f) + 1.0f) / 2.0f;
@@ -73,7 +78,14 @@ void BrickManager::Draw() {
             if (brick.isEvil) {
                 DrawRectangle(brick.x, brick.y, brick.width, brick.height, BLACK);
                 DrawRectangleLines(brick.x, brick.y, brick.width, brick.height, RED);
-                DrawText("!", brick.x + brick.width/2 - 5, brick.y + 5, 20, RED);
+                
+                // 画骷髅头
+                float cx = brick.x + brick.width / 2;
+                float cy = brick.y + brick.height / 2;
+                DrawCircle(cx, cy - 2, 6, RED);
+                DrawCircle(cx - 4, cy - 4, 2, WHITE);
+                DrawCircle(cx + 4, cy - 4, 2, WHITE);
+                DrawLine(cx - 3, cy + 2, cx + 3, cy + 2, WHITE);
             }
         }
     }
@@ -119,7 +131,7 @@ void BrickManager::SpawnExplosion(float x, float y, Color color) {
     }
 }
 
-void BrickManager::ExplodeArea(float centerX, float centerY, float radius) {
+void BrickManager::ExplodeArea(float centerX, float centerY, float radius, int& score, bool& dropPowerUp, Vector2& dropPos) {
     for (auto& brick : bricks) {
         if (!brick.active) continue;
         
@@ -130,6 +142,12 @@ void BrickManager::ExplodeArea(float centerX, float centerY, float radius) {
         if (dist < radius) {
             brick.active = false;
             SpawnExplosion(brickCenterX, brickCenterY, brick.color);
+            score += 10;
+            
+            if (GetRandomValue(0, 100) < 30) {
+                dropPowerUp = true;
+                dropPos = { brickCenterX, brickCenterY };
+            }
         }
     }
 }
@@ -156,7 +174,6 @@ bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ba
                     hitExplosive = true;
                     brick.active = false;
                     
-                    // 大爆炸特效
                     for (int i = 0; i < 50; i++) {
                         Particle p;
                         p.pos = { brick.x + brick.width/2, brick.y + brick.height/2 };
@@ -166,8 +183,7 @@ bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ba
                         particles.push_back(p);
                     }
                     
-                    // 炸毁周围砖块
-                    ExplodeArea(brick.x + brick.width/2, brick.y + brick.height/2, 100.0f);
+                    ExplodeArea(brick.x + brick.width/2, brick.y + brick.height/2, 100.0f, score, dropPowerUp, dropPos);
                     ballSpeed.y *= -1;
                     score += 50;
                     return true;
@@ -180,8 +196,7 @@ bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ba
                 
                 SpawnExplosion(brick.x + brick.width/2, brick.y + brick.height/2, brick.color);
                 
-                // 60% 掉落道具
-                if (GetRandomValue(0, 100) < 60) {
+                if (GetRandomValue(0, 100) < 30) {
                     dropPowerUp = true;
                     dropPos = { brick.x + brick.width/2, brick.y + brick.height/2 };
                 }

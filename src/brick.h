@@ -41,7 +41,7 @@ public:
                         bool& dropPowerUp, Vector2& dropPos, bool& hitEvil, bool& hitExplosive);
     bool AllCleared();
     void SetRows(int rows);
-    void ExplodeArea(float centerX, float centerY, float radius);
+    void ExplodeArea(float centerX, float centerY, float radius, int& score, bool& dropPowerUp, Vector2& dropPos);
 };
 
 #endif
