@@ -34,20 +34,22 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
 Game::Game(int width, int height) 
     : screenWidth(width), screenHeight(height), 
       paddle(width, height), bricks(width) {
-    config = Config::load("config.json");  // 加载配置
-    steps = config.steps;                   // 使用配置的步数
+    config = Config::load("config.json");
+    steps = config.steps;
     InitWindow(screenWidth, screenHeight, "打砖块");
     LoadFont();
     powerUpTexture = LoadTexture("assets/images/powerup.png");
+    
     // 初始化计时器
-    for (int i = 0; i < 5; i++) {
-    powerUpTimer[i] = 0.0f;
-}
+    for (int i = 0; i < 6; i++) {
+        powerUpTimer[i] = 0.0f;
+    }
+    
     originalPaddleWidth = paddle.GetSize().x;
 
-// 初始化球（改成用 vector）
+    // 初始化球
     balls.clear();
-    balls.push_back(Ball());  // 添加一个球
+    balls.push_back(Ball());
     Reset();
     background = LoadTexture("assets/images/t04bc12585fc9f34567(1).png");
 }
@@ -72,18 +74,18 @@ void Game::LoadFont() {
 void Game::Reset() {
     // 清空道具
     powerUps.clear();
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
         powerUpTimer[i] = 0.0f;
     }
     
-    // 重置球（多个球）
+    // 重置球
     balls.clear();
     balls.push_back(Ball());
     balls[0].Reset();
     
     paddle.Reset();
     bricks.Reset();
-    paddle.SetWidth(originalPaddleWidth);  // 恢复板子宽度
+    paddle.SetWidth(originalPaddleWidth);
     
     state = GameState::WAITING;
     score = 0;
@@ -110,11 +112,12 @@ void Game::ProcessInput() {
         
     default:
         break;
-}
+    }
 }
 
 void Game::Update(float dt) {
     bricks.UpdateParticles(dt);
+    
     // 更新闪光特效
     if (flash.life > 0) {
         flash.life -= dt;
@@ -198,28 +201,45 @@ void Game::Update(float dt) {
                 Vector2 ballSpeed = ball.GetSpeed();
                 bool dropPowerUp = false;
                 bool hitEvil = false;
+                bool hitExplosive = false;
                 Vector2 dropPos;
                 
-                bool hit = bricks.CheckCollision(ball.GetPosition(), ballRadius, ballSpeed, score, dropPowerUp, dropPos, hitEvil);
+                bool hit = bricks.CheckCollision(ball.GetPosition(), ballRadius, ballSpeed, score, 
+                                                  dropPowerUp, dropPos, hitEvil, hitExplosive);
                 
                 if (hitEvil) {
-                    state = GameState::GAMEOVER;
-                    ball.Stop();
-                    return;
+                    // 无敌状态下不受邪恶砖块影响
+                    if (!ball.IsInvincible()) {
+                        state = GameState::GAMEOVER;
+                        ball.Stop();
+                        return;
+                    }
                 }
                 if (hit) {
                     ball.SetSpeed(ballSpeed);
                 }
                 if (dropPowerUp) {
-                    SpawnPowerUp(dropPos, GetRandomValue(0, 4));
+                    // ========== 测试模式：100% 无敌道具 ==========
+                    int type = 5;
+                    SpawnPowerUp(dropPos, type);
                 }
             }
         }
         
-        // 检查球掉底
+        // 检查球掉底（无敌球会反弹）
         for (int i = balls.size() - 1; i >= 0; i--) {
-            if (balls[i].IsOutOfScreen(screenHeight)) {
-                balls.erase(balls.begin() + i);
+            if (balls[i].GetPosition().y + balls[i].GetRadius() > screenHeight) {
+                if (balls[i].IsInvincible()) {
+                    // 无敌球底部反弹
+                    balls[i].SetPositionY(screenHeight - balls[i].GetRadius());
+                    balls[i].BounceY();
+                    
+                    // 反弹特效
+                    flash.intensity = 0.5f;
+                    flash.life = 0.2f;
+                } else {
+                    balls.erase(balls.begin() + i);
+                }
             }
         }
         
@@ -241,6 +261,7 @@ void Game::Update(float dt) {
         }
     }
 }
+
 void Game::DrawChineseText(const char* text, int x, int y, int fontSize, Color color) {
     DrawTextEx(chineseFont, text, (Vector2){ (float)x, (float)y }, fontSize, 2, color);
 }
@@ -291,28 +312,25 @@ void Game::Draw() {
         DrawChineseText("按空格键重新开始", screenWidth/2 - 110, screenHeight/2 + 40, 24, WHITE);
     }
     
-    // ========== 特效绘制 ==========
-    // 全屏闪光
+    // 特效绘制
     if (flash.life > 0) {
         float alpha = flash.intensity * flash.life * 2;
         DrawRectangle(0, 0, screenWidth, screenHeight, Fade(WHITE, alpha));
     }
     
-    // 漂浮文字
     for (const auto& ft : floatingTexts) {
         int fontSize = 28 * (1.0f + (1.0f - ft.life));
         DrawTextEx(chineseFont, ft.text, ft.pos, fontSize, 2, Fade(ft.color, ft.life));
     }
     
-    // 特效粒子
     for (const auto& p : effectParticles) {
         float size = p.size * (1.0f + (1.0f - p.life));
         DrawCircleV(p.pos, size, Fade(p.color, p.life * 1.5f));
     }
-    // ===========================
     
     EndDrawing();
 }
+
 void Game::Run() {
     SetTargetFPS(60);
     while (!WindowShouldClose()) {
@@ -322,30 +340,32 @@ void Game::Run() {
         Draw();
     }
 }
+
 void Game::SpawnPowerUp(Vector2 pos, int type) {
     PowerUp p;
     p.position = pos;
     p.active = true;
     p.type = type;
-    p.speedY = 100.0f;  // 下落速度（像素/秒）
+    p.speedY = 100.0f;
     powerUps.push_back(p);
 }
+
 void Game::ApplyPowerUp(int type) {
     Vector2 center = paddle.GetPosition();
     center.y -= 20;
     
     switch (type) {
         case 0: // 加长板子
+        {
             originalPaddleWidth = paddle.GetSize().x;
             paddle.SetWidth(originalPaddleWidth * 2.0f);
             powerUpTimer[0] = 6.0f;
-            // 金色光环特效
             for (int i = 0; i < 80; i++) {
                 EffectParticle p;
                 p.pos = center;
                 float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
                 float speed = (float)GetRandomValue(200, 600);
-                p.vel = { cos(angle) * speed, sin(angle) * speed };
+                p.vel = { (float)(cos(angle) * speed), (float)(sin(angle) * speed) };
                 p.life = 0.8f;
                 p.size = 4;
                 p.color = GOLD;
@@ -354,74 +374,89 @@ void Game::ApplyPowerUp(int type) {
             flash.intensity = 0.8f;
             flash.life = 0.3f;
             break;
+        }
             
-        case 1: // 缩短板子（敌方效果）
+        case 1: // 缩短板子
+        {
             originalPaddleWidth = paddle.GetSize().x;
             paddle.SetWidth(originalPaddleWidth * 0.5f);
             powerUpTimer[1] = 5.0f;
-            // 暗紫色特效
             for (int i = 0; i < 60; i++) {
                 EffectParticle p;
                 p.pos = center;
                 float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
                 float speed = (float)GetRandomValue(150, 450);
-                p.vel = { cos(angle) * speed, sin(angle) * speed };
+                p.vel = { (float)(cos(angle) * speed), (float)(sin(angle) * speed) };
                 p.life = 0.6f;
                 p.size = 5;
                 p.color = DARKPURPLE;
                 effectParticles.push_back(p);
             }
             break;
+        }
             
-        case 2: // 多球（终极爆炸）
-            {
-                // 超大爆炸光环
-                for (int r = 0; r < 3; r++) {
-                    for (int i = 0; i < 120; i++) {
-                        EffectParticle p;
-                        p.pos = center;
-                        float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
-                        float speed = (float)GetRandomValue(300, 800);
-                        p.vel = { cos(angle) * speed, sin(angle) * speed };
-                        p.life = 0.7f - r * 0.1f;
-                        p.size = (r == 0) ? 6 : 3;
-                        if (r == 0) p.color = ORANGE;
-                        else if (r == 1) p.color = YELLOW;
-                        else p.color = RED;
-                        effectParticles.push_back(p);
-                    }
+        case 2: // 多球
+        {
+            for (int r = 0; r < 3; r++) {
+                for (int i = 0; i < 120; i++) {
+                    EffectParticle p;
+                    p.pos = center;
+                    float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                    float speed = (float)GetRandomValue(300, 800);
+                    p.vel = { (float)(cos(angle) * speed), (float)(sin(angle) * speed) };
+                    p.life = 0.7f - r * 0.1f;
+                    p.size = (r == 0) ? 6 : 3;
+                    if (r == 0) p.color = ORANGE;
+                    else if (r == 1) p.color = YELLOW;
+                    else p.color = RED;
+                    effectParticles.push_back(p);
                 }
-                
-                // 产生8-12个新球
-                int newBallsCount = GetRandomValue(8, 12);
-                for (int i = 0; i < newBallsCount; i++) {
-                    Ball newBall = balls[0];
-                    float angle = (float)i * (360.0f / newBallsCount) * DEG2RAD;
-                    float radius = 60.0f;
-                    Vector2 offset = { cos(angle) * radius, sin(angle) * radius };
-                    newBall.SetPosition({ center.x + offset.x, center.y + offset.y });
-                    Vector2 speed = { cos(angle) * 350, sin(angle) * 350 };
-                    newBall.SetSpeed(speed);
-                    newBall.Start(speed.x, speed.y);
-                    balls.push_back(newBall);
-                }
-                
-                // 屏幕强烈震动
-                shakeTime = 0.5f;
-                flash.intensity = 1.0f;
-                flash.life = 0.4f;
-                
-                // 加分文字
-                FloatingText ft;
-                ft.pos = center;
-                sprintf(ft.text, "+%d BALLS!", newBallsCount);
-                ft.life = 1.0f;
-                ft.color = YELLOW;
-                floatingTexts.push_back(ft);
-                break;
             }
             
+            int newBallsCount = GetRandomValue(8, 12);
+            for (int i = 0; i < newBallsCount; i++) {
+                Ball newBall = balls[0];
+                
+                float angle;
+                if (i % 2 == 0) {
+                    angle = (30.0f + (float)(i/2) * (120.0f / (newBallsCount/2))) * DEG2RAD;
+                } else {
+                    angle = (210.0f + (float)(i/2) * (120.0f / (newBallsCount/2))) * DEG2RAD;
+                }
+                
+                float radius = 60.0f;
+                Vector2 offset = { (float)(cos(angle) * radius), (float)(sin(angle) * radius) };
+                newBall.SetPosition({ center.x + offset.x, center.y + offset.y });
+                
+                float speedX = (float)(cos(angle) * 350);
+                float speedY = (float)(sin(angle) * 350);
+                
+                float minVerticalSpeed = 200.0f;
+                if (fabs(speedY) < minVerticalSpeed) {
+                    speedY = (speedY >= 0) ? minVerticalSpeed : -minVerticalSpeed;
+                }
+                
+                Vector2 speed = { speedX, speedY };
+                newBall.SetSpeed(speed);
+                newBall.Start(speed.x, speed.y);
+                balls.push_back(newBall);
+            }
+            
+            shakeTime = 0.5f;
+            flash.intensity = 1.0f;
+            flash.life = 0.4f;
+            
+            FloatingText ft2;
+            ft2.pos = center;
+            sprintf(ft2.text, "+%d BALLS!", newBallsCount);
+            ft2.life = 1.0f;
+            ft2.color = YELLOW;
+            floatingTexts.push_back(ft2);
+            break;
+        }
+            
         case 3: // 慢速球
+        {
             for (auto& b : balls) {
                 Vector2 spd = b.GetSpeed();
                 spd.x *= 0.3f;
@@ -429,7 +464,6 @@ void Game::ApplyPowerUp(int type) {
                 b.SetSpeed(spd);
             }
             powerUpTimer[3] = 5.0f;
-            // 蓝色冰冻特效
             for (int i = 0; i < 50; i++) {
                 EffectParticle p;
                 p.pos = center;
@@ -440,62 +474,108 @@ void Game::ApplyPowerUp(int type) {
                 effectParticles.push_back(p);
             }
             break;
+        }
             
         case 4: // 加分
+        {
             score += 100;
-            // 金币爆炸特效
             for (int i = 0; i < 100; i++) {
                 EffectParticle p;
                 p.pos = center;
                 float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
                 float speed = (float)GetRandomValue(200, 500);
-                p.vel = { cos(angle) * speed, sin(angle) * speed };
+                p.vel = { (float)(cos(angle) * speed), (float)(sin(angle) * speed) };
                 p.life = 0.6f;
                 p.size = (i % 2 == 0) ? 5 : 3;
                 p.color = GOLD;
                 effectParticles.push_back(p);
             }
-            FloatingText ft;
-            ft.pos = center;
-            sprintf(ft.text, "+100");
-            ft.life = 1.0f;
-            ft.color = GOLD;
-            floatingTexts.push_back(ft);
+            FloatingText ft4;
+            ft4.pos = center;
+            sprintf(ft4.text, "+100");
+            ft4.life = 1.0f;
+            ft4.color = GOLD;
+            floatingTexts.push_back(ft4);
             break;
+        }
+            
+        case 5: // 无敌球
+        {
+            for (auto& b : balls) {
+                b.SetInvincible(true, 8.0f);
+            }
+            powerUpTimer[5] = 8.0f;
+            
+            for (int i = 0; i < 80; i++) {
+                EffectParticle p;
+                p.pos = center;
+                float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                float speed = (float)GetRandomValue(200, 600);
+                p.vel = { (float)(cos(angle) * speed), (float)(sin(angle) * speed) };
+                p.life = 0.8f;
+                p.size = 5;
+                p.color = (Color){ 
+                    (unsigned char)GetRandomValue(100, 255), 
+                    (unsigned char)GetRandomValue(100, 255), 
+                    (unsigned char)GetRandomValue(100, 255), 
+                    255 
+                };
+                effectParticles.push_back(p);
+            }
+            
+            flash.intensity = 1.0f;
+            flash.life = 0.5f;
+            
+            FloatingText ft5;
+            ft5.pos = center;
+            sprintf(ft5.text, "INVINCIBLE!");
+            ft5.life = 1.5f;
+            ft5.color = (Color){ 255, 215, 0, 255 };
+            floatingTexts.push_back(ft5);
+            break;
+        }
     }
 }
+
 void Game::UpdatePowerUps(float dt) {
-    // 1. 更新计时器
-    for (int i = 0; i < 5; i++) {
+    // 更新计时器
+    for (int i = 0; i < 6; i++) {
         if (powerUpTimer[i] > 0) {
             powerUpTimer[i] -= dt;
             if (powerUpTimer[i] <= 0) {
-                // 时间到，恢复效果
-                if (i == 0 || i == 1) {  // 加长/缩短板子
+                if (i == 0 || i == 1) {
                     paddle.SetWidth(originalPaddleWidth);
                 }
-                if (i == 3) {  // 慢速球
+                if (i == 3) {
                     for (auto& b : balls) {
                         b.SetSpeed(b.GetOriginalSpeed());
+                    }
+                }
+                if (i == 5) {
+                    for (auto& b : balls) {
+                        b.SetInvincible(false, 0);
                     }
                 }
             }
         }
     }
     
-    // 2. 更新道具位置和碰撞
+    // 更新每个球的无敌状态
+    for (auto& b : balls) {
+        b.UpdateInvincible(dt);
+    }
+    
+    // 更新道具位置和碰撞
     for (auto& p : powerUps) {
         if (!p.active) continue;
         
-        p.position.y += p.speedY * dt;  // 向下移动
+        p.position.y += p.speedY * dt;
         
-        // 超出屏幕底部
         if (p.position.y > screenHeight) {
             p.active = false;
             continue;
         }
         
-        // 检查是否被板子接住
         Rectangle paddleRect = paddle.GetRect();
         if (CheckCollisionCircleRec(p.position, 20, paddleRect)) {
             ApplyPowerUp(p.type);
@@ -503,17 +583,27 @@ void Game::UpdatePowerUps(float dt) {
         }
     }
     
-    // 3. 删除失效道具
+    // 删除失效道具
     powerUps.erase(remove_if(powerUps.begin(), powerUps.end(),
         [](const PowerUp& p) { return !p.active; }), powerUps.end());
 }
+
 void Game::DrawPowerUps() {
     for (const auto& p : powerUps) {
         if (p.active) {
-            DrawTextureEx(powerUpTexture, p.position, 0, 0.01f, WHITE); 
+            if (p.type == 5) {
+                // 无敌道具用星星绘制
+                float time = GetTime();
+                DrawCircleV(p.position, 15, Fade(YELLOW, 0.5f));
+                DrawCircleV(p.position, 10, Fade(WHITE, 0.8f));
+                DrawText("★", p.position.x - 10, p.position.y - 10, 22, YELLOW);
+            } else {
+                DrawTextureEx(powerUpTexture, p.position, 0, 0.01f, WHITE);
+            }
         }
     }
 }
+
 void Game::DrawHearts() {
     int startX = screenWidth - 70;
     int startY = 20;
@@ -522,7 +612,6 @@ void Game::DrawHearts() {
     for (int i = 0; i < lives; i++) {
         int x = startX - i * spacing;
         
-        // 标准爱心形状（24x24 像素点阵）
         int heartPixels[24][24] = {
             {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
             {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},

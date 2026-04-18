@@ -11,7 +11,9 @@ private:
     float radius;
     bool moving;
     Vector2 originalSpeed;
-    std::vector<Vector2> trail;  // 拖尾历史位置
+    std::vector<Vector2> trail;
+    bool invincible;
+    float invincibleTimer;
 
 public:
     Ball();
@@ -27,6 +29,10 @@ public:
     void SetPosition(Vector2 newPos);
     void AddSpeedX(float delta);
     void ClampSpeed(float maxSpeed);
+    
+    void SetInvincible(bool inv, float duration);
+    bool IsInvincible() { return invincible; }
+    void UpdateInvincible(float dt);
     
     Vector2 GetPosition();
     Vector2 GetSpeed();

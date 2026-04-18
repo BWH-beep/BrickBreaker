@@ -60,12 +60,12 @@ private:
     struct PowerUp {
         Vector2 position;
         bool active;
-        int type;
+        int type;  // 0:加长, 1:缩短, 2:多球, 3:慢速, 4:加分, 5:无敌
         float speedY;
     };
     
     std::vector<PowerUp> powerUps;
-    float powerUpTimer[5];
+    float powerUpTimer[6];  // 增加到6个
     float originalPaddleWidth;
     std::vector<Ball> balls;
     
