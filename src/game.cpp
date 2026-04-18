@@ -53,7 +53,12 @@ Game::Game(int width, int height)
     balls.push_back(Ball());
     Reset();
     background = LoadTexture("assets/images/t04bc12585fc9f34567(1).png");
+    paused = false;
+    pauseButton = { screenWidth - 50.0f, 10.0f, 40.0f, 40.0f };
+    continueButton = { screenWidth/2 - 100.0f, screenHeight/2 - 30.0f, 200.0f, 50.0f };
+    quitButton = { screenWidth/2 - 100.0f, screenHeight/2 + 40.0f, 200.0f, 50.0f };
 }
+
 
 Game::~Game() {
     UnloadFont(chineseFont);
@@ -121,6 +126,16 @@ void Game::Reset() {
 }
 
 void Game::ProcessInput() {
+    // 检测暂停按钮点击（不管是否暂停都要能点）
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        Vector2 mousePos = GetMousePosition();
+        if (CheckCollisionPointRec(mousePos, pauseButton)) {
+            paused = !paused;
+        }
+    }
+    
+    if (paused) return;  // 暂停时不处理游戏输入
+    
     switch (state) {
     case GameState::WAITING:
         if (IsKeyPressed(KEY_SPACE)) {
@@ -142,8 +157,28 @@ void Game::ProcessInput() {
         break;
     }
 }
-
 void Game::Update(float dt) {
+    
+    bricks.UpdateParticles(dt);
+    if (paused) {
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            Vector2 mousePos = GetMousePosition();
+            
+            // 继续按钮
+            if (CheckCollisionPointRec(mousePos, continueButton)) {
+                paused = false;
+            }
+            
+            // 退出按钮 - 回到开始界面
+            if (CheckCollisionPointRec(mousePos, quitButton)) {
+                paused = false;
+                state = GameState::WAITING;
+                Reset();
+            }
+        }
+        return;  // 暂停时不更新游戏逻辑
+    }
+    
     bricks.UpdateParticles(dt);
     
     // 更新闪光特效
@@ -363,6 +398,29 @@ void Game::Draw() {
     for (const auto& p : effectParticles) {
         float size = p.size * (1.0f + (1.0f - p.life));
         DrawCircleV(p.pos, size, Fade(p.color, p.life * 1.5f));
+    }
+        // ========== 绘制暂停按钮 ==========
+    DrawRectangleRec(pauseButton, Fade(GRAY, 0.5f));
+    DrawRectangle(pauseButton.x + 12, pauseButton.y + 10, 6, 20, WHITE);
+    DrawRectangle(pauseButton.x + 22, pauseButton.y + 10, 6, 20, WHITE);
+    
+    // ========== 如果暂停，绘制菜单 ==========
+    if (paused) {
+        // 半透明遮罩
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
+        
+        // 标题
+        DrawText("PAUSED", screenWidth/2 - 70, screenHeight/2 - 120, 40, WHITE);
+        
+        // 继续按钮
+        DrawRectangleRec(continueButton, Fade(GREEN, 0.8f));
+        DrawRectangleLinesEx(continueButton, 2, WHITE);
+        DrawText("Continue", continueButton.x + 40, continueButton.y + 12, 24, WHITE);
+        
+        // 退出按钮
+        DrawRectangleRec(quitButton, Fade(RED, 0.8f));
+        DrawRectangleLinesEx(quitButton, 2, WHITE);
+        DrawText("Quit", quitButton.x + 60, quitButton.y + 12, 24, WHITE);
     }
     
     EndDrawing();

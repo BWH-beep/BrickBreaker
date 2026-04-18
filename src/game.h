@@ -92,6 +92,10 @@ private:
     void SpawnPowerUp(Vector2 pos, int type);
     void ApplyPowerUp(int type);
     void UpdatePowerUps(float dt);
+    bool paused;                    // 是否暂停
+    Rectangle pauseButton;          // 暂停按钮区域
+    Rectangle continueButton;       // 继续按钮
+    Rectangle quitButton;           // 退出按钮
 };
 
 #endif
