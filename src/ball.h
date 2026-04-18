@@ -17,6 +17,7 @@ private:
 
 public:
     Ball();
+    void RecordTrail();  // 手动记录拖尾位置
     void Update(float dt);
     void Draw();
     void Start(float speedX, float speedY);

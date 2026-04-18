@@ -110,6 +110,9 @@ void Game::Reset() {
     
     paddle.Reset();
     bricks.Reset();
+    
+    // 强制重置板子宽度为原始宽度
+    originalPaddleWidth = config.paddleWidth;  // 从配置读取原始宽度
     paddle.SetWidth(originalPaddleWidth);
     
     state = GameState::WAITING;
@@ -179,6 +182,8 @@ void Game::Update(float dt) {
             for (int step = 0; step < steps; step++) {
                 Vector2 oldPos = ball.GetPosition();
                 ball.Update(stepDt);
+                ball.RecordTrail();
+                ball.RecordTrail(); 
                 
                 Vector2 ballPos = ball.GetPosition();
                 float ballRadius = ball.GetRadius();

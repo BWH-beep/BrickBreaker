@@ -3,7 +3,7 @@
 #include <cstdio>
 
 Ball::Ball() {
-    radius = 8;
+    radius = 12;
     invincible = false;
     invincibleTimer = 0;
     Reset();
@@ -18,7 +18,7 @@ void Ball::Reset() {
     // ========== 强制无敌测试 ==========
     invincible = false;
     invincibleTimer = 0.0f;  // 很长时间
-    radius = 16;  // 明显变大
+    radius = 12;  // 明显变大
     // ================================
 }
 
@@ -28,22 +28,25 @@ void Ball::Update(float dt) {
     }
     
     if (moving) {
-        trail.push_back(position);
-        if (trail.size() > 20) {
-            trail.erase(trail.begin());
-        }
-        
         position.x += speed.x * dt;
         position.y += speed.y * dt;
     }
 }
 
+void Ball::RecordTrail() {
+    if (moving) {
+        trail.push_back(position);
+        if (trail.size() > 40) {
+            trail.erase(trail.begin());
+        }
+    }
+}
 void Ball::UpdateInvincible(float dt) {
     if (invincibleTimer > 0) {
         invincibleTimer -= dt;
         if (invincibleTimer <= 0) {
             invincible = false;
-            radius = 8;
+            radius = 12;
         }
     }
 }
@@ -55,22 +58,21 @@ void Ball::SetInvincible(bool inv, float duration) {
         radius = 16;
     } else {
         invincibleTimer = 0;
-        radius = 8;
+        radius = 12;
     }
 }
 
 void Ball::Draw() {
-    // 无敌时强制使用亮红色，确保能看到变化
+    // 确定球的颜色
     Color ballColor;
     if (invincible) {
-        // 直接用明显的颜色变化
         float time = GetTime();
         int r = (int)((sin(time * 3.0f) * 0.5f + 0.5f) * 255);
         int g = (int)((sin(time * 3.0f + 2.0f) * 0.5f + 0.5f) * 255);
         int b = (int)((sin(time * 3.0f + 4.0f) * 0.5f + 0.5f) * 255);
         ballColor = (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
         
-        // 画一个大光环
+        // 无敌光环
         DrawCircleV(position, radius + 15, Fade(ballColor, 0.2f));
         DrawCircleV(position, radius + 10, Fade(ballColor, 0.3f));
         DrawCircleV(position, radius + 5, Fade(WHITE, 0.4f));
@@ -78,24 +80,53 @@ void Ball::Draw() {
         ballColor = YELLOW;
     }
     
-    // 绘制拖尾
+    // ========== 绘制彗星拖尾 ==========
     int trailSize = (int)trail.size();
     for (int i = 0; i < trailSize; i++) {
-        float t = (float)i / trailSize;
-        float alpha = 0.1f + 0.5f * t;
+        float t = (float)i / trailSize;  // 0 = 最旧（尾巴末端）, 1 = 最新（靠近球）
+        
+        // 越靠近球：越大、越亮
         float size = radius * (0.3f + 0.7f * t);
-        DrawCircleV(trail[i], size, Fade(ballColor, alpha));
+        float alpha = 0.2f + 0.8f * t;
+        
+        // 拖尾颜色渐变
+        Color trailColor;
+        if (invincible) {
+            // 无敌时彩虹拖尾
+            float time = GetTime();
+            trailColor.r = (unsigned char)((sin(time * 3.0f + i * 0.1f) * 0.5f + 0.5f) * 255);
+            trailColor.g = (unsigned char)((sin(time * 3.0f + 2.0f + i * 0.1f) * 0.5f + 0.5f) * 255);
+            trailColor.b = (unsigned char)((sin(time * 3.0f + 4.0f + i * 0.1f) * 0.5f + 0.5f) * 255);
+            trailColor.a = 255;
+        } else {
+            // 普通球：黄色渐变到橙红
+            trailColor.r = 255;
+            trailColor.g = (unsigned char)(180 + 75 * t);
+            trailColor.b = (unsigned char)(50 * (1 - t));
+            trailColor.a = 255;
+        }
+        
+        // 画拖尾主圆
+        DrawCircleV(trail[i], size, Fade(trailColor, alpha));
+        
+        // 画拖尾内层高光（更亮）
+        DrawCircleV(trail[i], size * 0.6f, Fade(WHITE, alpha * 0.4f));
     }
     
-    // 绘制球体
-    DrawCircleV(position, radius + 3, Fade(ballColor, 0.3f));
-    DrawCircleV(position, radius + 1, Fade(ballColor, 0.5f));
+    // ========== 绘制球体 ==========
+    // 外层光晕
+    DrawCircleV(position, radius + 5, Fade(ballColor, 0.2f));
+    DrawCircleV(position, radius + 2, Fade(ballColor, 0.4f));
+    
+    // 主球体
     DrawCircleV(position, radius, ballColor);
     
-    // 球中心画个白色亮点
-    DrawCircleV(position, 3, WHITE);
+    // 球体高光（模拟立体感）
+    DrawCircleV(position, radius * 0.5f, Fade(WHITE, 0.5f));
+    
+    // 球中心最亮
+    DrawCircleV(position, 2, WHITE);
 }
-
 void Ball::Start(float speedX, float speedY) {
     moving = true;
     speed = { speedX, speedY };
