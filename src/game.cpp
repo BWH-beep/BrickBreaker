@@ -57,6 +57,10 @@ Game::Game(int width, int height)
     pauseButton = { screenWidth - 50.0f, 10.0f, 40.0f, 40.0f };
     continueButton = { screenWidth/2 - 100.0f, screenHeight/2 - 30.0f, 200.0f, 50.0f };
     quitButton = { screenWidth/2 - 100.0f, screenHeight/2 + 40.0f, 200.0f, 50.0f };
+        paused = false;
+    pauseButton = { (float)screenWidth - 50, 10, 40, 40 };
+    continueButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 - 30, 200, 50 };
+    quitButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 + 40, 200, 50 };
 }
 
 
@@ -396,6 +400,23 @@ void Game::Draw() {
     for (const auto& p : effectParticles) {
         float size = p.size * (1.0f + (1.0f - p.life));
         DrawCircleV(p.pos, size, Fade(p.color, p.life * 1.5f));
+    }
+    
+    // 绘制暂停按钮
+    DrawRectangleRec(pauseButton, Fade(GRAY, 0.5f));
+    DrawRectangle(pauseButton.x + 12, pauseButton.y + 10, 6, 20, WHITE);
+    DrawRectangle(pauseButton.x + 22, pauseButton.y + 10, 6, 20, WHITE);
+    
+    // 如果暂停，绘制菜单
+    if (paused) {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
+        DrawText("PAUSED", screenWidth/2 - 70, screenHeight/2 - 120, 40, WHITE);
+        
+        DrawRectangleRec(continueButton, Fade(GREEN, 0.8f));
+        DrawText("Continue", continueButton.x + 50, continueButton.y + 12, 24, WHITE);
+        
+        DrawRectangleRec(quitButton, Fade(RED, 0.8f));
+        DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
     }
     
     EndDrawing();
