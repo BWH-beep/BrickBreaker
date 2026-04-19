@@ -217,8 +217,6 @@ void Game::Update(float dt) {
             for (int step = 0; step < steps; step++) {
                 Vector2 oldPos = ball.GetPosition();
                 ball.Update(stepDt);
-                ball.RecordTrail();
-                ball.RecordTrail(); 
                 
                 Vector2 ballPos = ball.GetPosition();
                 float ballRadius = ball.GetRadius();
@@ -398,29 +396,6 @@ void Game::Draw() {
     for (const auto& p : effectParticles) {
         float size = p.size * (1.0f + (1.0f - p.life));
         DrawCircleV(p.pos, size, Fade(p.color, p.life * 1.5f));
-    }
-        // ========== 绘制暂停按钮 ==========
-    DrawRectangleRec(pauseButton, Fade(GRAY, 0.5f));
-    DrawRectangle(pauseButton.x + 12, pauseButton.y + 10, 6, 20, WHITE);
-    DrawRectangle(pauseButton.x + 22, pauseButton.y + 10, 6, 20, WHITE);
-    
-    // ========== 如果暂停，绘制菜单 ==========
-    if (paused) {
-        // 半透明遮罩
-        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
-        
-        // 标题
-        DrawText("PAUSED", screenWidth/2 - 70, screenHeight/2 - 120, 40, WHITE);
-        
-        // 继续按钮
-        DrawRectangleRec(continueButton, Fade(GREEN, 0.8f));
-        DrawRectangleLinesEx(continueButton, 2, WHITE);
-        DrawText("Continue", continueButton.x + 40, continueButton.y + 12, 24, WHITE);
-        
-        // 退出按钮
-        DrawRectangleRec(quitButton, Fade(RED, 0.8f));
-        DrawRectangleLinesEx(quitButton, 2, WHITE);
-        DrawText("Quit", quitButton.x + 60, quitButton.y + 12, 24, WHITE);
     }
     
     EndDrawing();

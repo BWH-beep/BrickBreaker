@@ -1,0 +1,16 @@
+问题1：构造函数的调用顺序是什么？为什么？
+答：构造顺序为 Base1 → Base2 → Derived。
+原因：多重继承时，构造函数的调用顺序由继承声明时的顺序决定（class Derived : public Base1, public Base2），与初始化列表中的顺序无关。先继承的先构造。
+
+问题2：析构函数的调用顺序是什么？为什么？
+答：析构顺序为 Derived → Base2 → Base1。
+原因：析构顺序与构造顺序严格相反，这是C++的规定，保证后构造的先析构。
+
+问题3：构造Ball类时构造函数的调用顺序？GameObject被调用几次？由谁调用？
+答：Ball继承自PhysicalObject和VisualObject，它们又虚继承自GameObject。
+构造顺序为：GameObject → PhysicalObject → VisualObject → Ball。
+GameObject的构造函数只被调用1次（因为虚继承），由最派生类Ball直接调用。
+析构顺序与构造顺序相反：Ball → VisualObject → PhysicalObject → GameObject。
+Paddle 类（挡板） 完全可以采用和 Ball 相同的继承方式。Paddle 具有位置坐标（GameObject 的职责）、移动速度（PhysicalObject 的职责）、以及颜色和是否可见（VisualObject 的职责），因此让 Paddle 同时继承 PhysicalObject 和 VisualObject 是合理的。Paddle 还可以增加自己特有的属性，比如 width（宽度）和 height（高度），以及移动速度的上限等。这样设计后，Paddle 的移动逻辑放在 PhysicalObject 相关的方法中，绘制逻辑放在 VisualObject 相关的方法中，职责分离清晰。
+
+Brick 类（砖块） 的情况稍微复杂一些。砖块本身是静止的，没有速度和半径这些物理运动属性，因此继承 PhysicalObject 并不合适。我的想法是让 Brick 只继承 VisualObject（因为它有位置、颜色、可见性），或者直接继承 GameObject 然后自行添加颜色和可见性成员。此外，Brick 还需要存储宽度、高度、是否激活、是否邪恶砖块、是否爆炸砖块等游戏逻辑特有的属性。如果考虑砖块管理类 BrickManager，它不需要继承任何 GameObject 体系，因为它本身不是游戏对象，而是管理多个砖块的容器类。
