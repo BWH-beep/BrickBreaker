@@ -32,6 +32,15 @@ private:
     int screenWidth;
 
 public:
+    bool IsBrickExplosive(int index) const { return bricks[index].isExplosive; }
+    bool IsBrickEvil(int index) const { return bricks[index].isEvil; }
+    void SetBrickType(int index, int type) {
+        if (index < (int)bricks.size()) {
+            bricks[index].active = (type != 0);
+            bricks[index].isExplosive = (type == 2);
+            bricks[index].isEvil = (type == 3);
+        }
+    }
     int GetBrickCount() const { return (int)bricks.size(); }
     bool IsBrickActive(int index) const { return bricks[index].active; }
     void SetBrickActive(int index, bool active) { if (index < (int)bricks.size()) bricks[index].active = active; }

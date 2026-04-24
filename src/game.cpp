@@ -121,8 +121,10 @@ void Game::Reset() {
     balls.push_back(Ball());
     balls[0].Reset();
     
-    paddle.Reset();
-    bricks.Reset();
+        paddle.Reset();
+    if (!isNetworkGame || networkMode == NetworkMode::HOST) {
+        bricks.Reset();
+    }
     
     // 强制重置板子宽度为原始宽度
     originalPaddleWidth = config.paddleWidth;  // 从配置读取原始宽度
@@ -446,7 +448,10 @@ void Game::Run() {
             break;
     }
     
-    bricks.SetRows(menu.GetBrickRows());
+        if (!isNetworkGame || networkMode == NetworkMode::HOST) {
+        bricks.SetRows(menu.GetBrickRows());
+    }
+    // 客户端不生成砖块，等主机同步
     
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
@@ -793,19 +798,20 @@ void Game::UpdateNetwork() {
         // 客户端接收主机发来的游戏状态
         ::GameState hostState;
         memset(&hostState, 0, sizeof(hostState));
-                if (network.ReceiveGameState(hostState)) {
+        if (network.ReceiveGameState(hostState)) {
             if (!balls.empty()) {
                 balls[0].SetPosition({hostState.ballX, hostState.ballY});
                 balls[0].SetSpeed({hostState.ballSpeedX, hostState.ballSpeedY});
             }
             hostPaddleX = hostState.paddle1X;
+            paddle.SetWidth(hostState.paddle1Width);
             score = hostState.score1;
             lives = hostState.lives1;
             
             // 同步砖块状态
             int count = bricks.GetBrickCount();
             for (int i = 0; i < count && i < 50; i++) {
-                bricks.SetBrickActive(i, hostState.brickActive[i] == 1);
+                bricks.SetBrickType(i, hostState.brickType[i]);
             }
         }
     }
@@ -814,7 +820,7 @@ void Game::UpdateNetwork() {
 void Game::SendGameState() {
     if (!network.Connected()) return;
     
-    ::GameState state;
+    ::GameState state;   // 加 ::
     memset(&state, 0, sizeof(state));
     
     if (!balls.empty()) {
@@ -825,17 +831,23 @@ void Game::SendGameState() {
     }
     state.paddle1X = paddle.GetPosition().x;
     state.paddle2X = clientPaddleX;
+    state.paddle1Width = paddle.GetSize().x;
+    state.paddle2Width = 0;
     state.score1 = score;
     state.lives1 = lives;
     
-    // 同步砖块状态
     int count = bricks.GetBrickCount();
     for (int i = 0; i < count && i < 50; i++) {
-        state.brickActive[i] = bricks.IsBrickActive(i) ? 1 : 0;
+        if (!bricks.IsBrickActive(i)) {
+            state.brickType[i] = 0;
+        } else if (bricks.IsBrickExplosive(i)) {
+            state.brickType[i] = 2;
+        } else if (bricks.IsBrickEvil(i)) {
+            state.brickType[i] = 3;
+        } else {
+            state.brickType[i] = 1;
+        }
     }
     
     network.SendGameState(state);
-}
-void Game::ReceiveGameState() {
-    // 已合并到 UpdateNetwork，保留空函数
 }
