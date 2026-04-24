@@ -32,6 +32,9 @@ private:
     int screenWidth;
 
 public:
+    int GetBrickCount() const { return (int)bricks.size(); }
+    bool IsBrickActive(int index) const { return bricks[index].active; }
+    void SetBrickActive(int index, bool active) { if (index < (int)bricks.size()) bricks[index].active = active; }
     BrickManager(int width);
     void Reset();
     void Draw();

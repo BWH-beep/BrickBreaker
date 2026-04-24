@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <vector>
 #include <algorithm>
+#include "network_manager.h"
 
 // 特效粒子结构
 struct EffectParticle {
@@ -35,6 +36,14 @@ struct FloatingText {
 
 class Game {
 private:
+    float clientPaddleX = 400;   // 客户端板位置（主机用）
+    float hostPaddleX = 400;     // 主机板位置（客户端用）
+    NetworkManager network;          // 网络管理器
+    NetworkMode networkMode;         // 当前网络模式
+    bool isNetworkGame;              // 是否联机模式
+    void UpdateNetwork();           // 网络更新（主机发送，客户端接收）
+    void SendGameState();           // 主机发送游戏状态
+    void ReceiveGameState();        // 客户端接收游戏状态
     Texture2D powerUpTexture;
     Texture2D background;
     const int screenWidth;

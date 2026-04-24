@@ -2,6 +2,7 @@
 #include "game.h"
 #include <cmath>
 #include <algorithm> 
+#include "menu.h"
 
 // 线段与矩形碰撞检测函数
 bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitPoint) {
@@ -61,6 +62,9 @@ Game::Game(int width, int height)
     pauseButton = { (float)screenWidth - 50, 10, 40, 40 };
     continueButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 - 30, 200, 50 };
     quitButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 + 40, 200, 50 };
+        // 网络初始化
+    isNetworkGame = false;
+    networkMode = NetworkMode::NONE;
 }
 
 
@@ -130,7 +134,6 @@ void Game::Reset() {
 }
 
 void Game::ProcessInput() {
-    // 检测暂停按钮点击（不管是否暂停都要能点）
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         Vector2 mousePos = GetMousePosition();
         if (CheckCollisionPointRec(mousePos, pauseButton)) {
@@ -138,7 +141,7 @@ void Game::ProcessInput() {
         }
     }
     
-    if (paused) return;  // 暂停时不处理游戏输入
+    if (paused) return;
     
     switch (state) {
     case GameState::WAITING:
@@ -162,35 +165,28 @@ void Game::ProcessInput() {
     }
 }
 void Game::Update(float dt) {
-    
-    bricks.UpdateParticles(dt);
+    // 暂停菜单的按钮检测
     if (paused) {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mousePos = GetMousePosition();
-            
-            // 继续按钮
             if (CheckCollisionPointRec(mousePos, continueButton)) {
                 paused = false;
             }
-            
-            // 退出按钮 - 回到开始界面
             if (CheckCollisionPointRec(mousePos, quitButton)) {
                 paused = false;
                 state = GameState::WAITING;
                 Reset();
             }
         }
-        return;  // 暂停时不更新游戏逻辑
+        return;
     }
-    
+
     bricks.UpdateParticles(dt);
-    
-    // 更新闪光特效
+
     if (flash.life > 0) {
         flash.life -= dt;
     }
-    
-    // 更新漂浮文字
+
     for (int i = floatingTexts.size() - 1; i >= 0; i--) {
         floatingTexts[i].pos.y -= 50 * dt;
         floatingTexts[i].life -= dt;
@@ -198,8 +194,7 @@ void Game::Update(float dt) {
             floatingTexts.erase(floatingTexts.begin() + i);
         }
     }
-    
-    // 更新特效粒子
+
     for (int i = effectParticles.size() - 1; i >= 0; i--) {
         effectParticles[i].pos.x += effectParticles[i].vel.x * dt;
         effectParticles[i].pos.y += effectParticles[i].vel.y * dt;
@@ -208,24 +203,33 @@ void Game::Update(float dt) {
             effectParticles.erase(effectParticles.begin() + i);
         }
     }
-    
-    paddle.Update(dt);
-    
-    // 更新道具系统
+
     UpdatePowerUps(dt);
-    
+
+    // 网络更新（放在 state 判断之前）
+    if (isNetworkGame) {
+        network.Update();
+        UpdateNetwork();
+    }
+
     if (state == GameState::PLAYING) {
+        // 板子更新
+        paddle.Update(dt);
+
+        // 客户端：不执行游戏逻辑，只接收
+        if (isNetworkGame && networkMode == NetworkMode::CLIENT) {
+            return;
+        }
+
         float stepDt = dt / steps;
-        
+
         for (auto& ball : balls) {
             for (int step = 0; step < steps; step++) {
                 Vector2 oldPos = ball.GetPosition();
                 ball.Update(stepDt);
-                
                 Vector2 ballPos = ball.GetPosition();
                 float ballRadius = ball.GetRadius();
-                
-                // 墙壁碰撞
+
                 if (ballPos.x - ballRadius < 0) {
                     ball.SetPositionX(ballRadius);
                     ball.BounceX();
@@ -238,77 +242,59 @@ void Game::Update(float dt) {
                     ball.SetPositionY(ballRadius);
                     ball.BounceY();
                 }
-                
-                // 板子碰撞
+
                 Rectangle paddleRect = paddle.GetRect();
-                Vector2 currentPos = ball.GetPosition();
-                Vector2 hitPoint;
-                
                 Rectangle expandedRect = {
                     paddleRect.x - ballRadius,
                     paddleRect.y - ballRadius,
                     paddleRect.width + ballRadius * 2,
                     paddleRect.height + ballRadius * 2
                 };
-                
-                if (LineRectCollision(oldPos, currentPos, expandedRect, hitPoint)) {
+                Vector2 hitPoint;
+                if (LineRectCollision(oldPos, ballPos, expandedRect, hitPoint)) {
                     if (ball.GetSpeed().y > 0) {
                         float hitPos = (hitPoint.x - paddle.GetPosition().x) / (paddle.GetSize().x / 2);
                         if (hitPos > 1) hitPos = 1;
                         if (hitPos < -1) hitPos = -1;
-                        
                         ball.BounceY();
                         ball.AddSpeedX(hitPos * 150);
                         ball.ClampSpeed(500);
                         ball.SetPositionY(paddleRect.y - ballRadius);
                     }
                 }
-                
-                // 砖块碰撞
+
                 Vector2 ballSpeed = ball.GetSpeed();
-                bool dropPowerUp = false;
-                bool hitEvil = false;
-                bool hitExplosive = false;
+                bool dropPowerUp = false, hitEvil = false, hitExplosive = false;
                 Vector2 dropPos;
-                
-                bool hit = bricks.CheckCollision(ball.GetPosition(), ballRadius, ballSpeed, score, 
+                bool hit = bricks.CheckCollision(ballPos, ballRadius, ballSpeed, score,
                                                   dropPowerUp, dropPos, hitEvil, hitExplosive);
-                
                 if (hitEvil) {
-                    // 无敌状态下不受邪恶砖块影响
                     if (!ball.IsInvincible()) {
                         state = GameState::GAMEOVER;
                         ball.Stop();
                         return;
                     }
                 }
-                if (hit) {
-                    ball.SetSpeed(ballSpeed);
-                }
+                if (hit) ball.SetSpeed(ballSpeed);
                 if (dropPowerUp) {
-                    // ========== 测试模式：100% 无敌道具 ==========
                     int type;
                     int rand = GetRandomValue(0, 100);
-                    if (rand < 20) type = 5;       // 20% 无敌
-                    else if (rand < 45) type = 2;  // 25% 分裂
-                    else if (rand < 60) type = 0;  // 15% 加长
-                    else if (rand < 75) type = 3;  // 15% 慢速
-                    else if (rand < 88) type = 4;  // 13% 加分
-                    else type = 1;                 // 12% 缩短
+                    if (rand < 20) type = 5;
+                    else if (rand < 45) type = 2;
+                    else if (rand < 60) type = 0;
+                    else if (rand < 75) type = 3;
+                    else if (rand < 88) type = 4;
+                    else type = 1;
                     SpawnPowerUp(dropPos, type);
                 }
             }
         }
-        
-        // 检查球掉底（无敌球会反弹）
+
         for (int i = balls.size() - 1; i >= 0; i--) {
             if (balls[i].GetPosition().y + balls[i].GetRadius() > screenHeight) {
                 if (balls[i].IsInvincible()) {
-                    // 无敌球底部反弹
                     balls[i].SetPositionY(screenHeight - balls[i].GetRadius());
                     balls[i].BounceY();
-                    
-                    // 反弹特效
                     flash.intensity = 0.5f;
                     flash.life = 0.2f;
                 } else {
@@ -316,7 +302,7 @@ void Game::Update(float dt) {
                 }
             }
         }
-        
+
         if (balls.empty()) {
             lives--;
             if (lives <= 0) {
@@ -329,7 +315,7 @@ void Game::Update(float dt) {
                 state = GameState::WAITING;
             }
         }
-        
+
         if (bricks.AllCleared()) {
             state = GameState::WIN;
         }
@@ -339,7 +325,6 @@ void Game::Update(float dt) {
 void Game::DrawChineseText(const char* text, int x, int y, int fontSize, Color color) {
     DrawTextEx(chineseFont, text, (Vector2){ (float)x, (float)y }, fontSize, 2, color);
 }
-
 void Game::Draw() {
     BeginDrawing();
     
@@ -357,7 +342,18 @@ void Game::Draw() {
         b.Draw();
     }
     
-    paddle.Draw();
+    // 画自己的板
+        paddle.Draw();
+    
+    if (isNetworkGame) {
+        float opponentX = (networkMode == NetworkMode::HOST) ? clientPaddleX : hostPaddleX;
+        Color oppColor = (networkMode == NetworkMode::HOST) ? RED : BLUE;
+        DrawRectangle(opponentX - paddle.GetSize().x/2, 
+                      paddle.GetPosition().y, 
+                      paddle.GetSize().x, paddle.GetSize().y, 
+                      oppColor);
+    }
+    
     DrawPowerUps();
     
     char scoreText[50] = {0};
@@ -407,14 +403,11 @@ void Game::Draw() {
     DrawRectangle(pauseButton.x + 12, pauseButton.y + 10, 6, 20, WHITE);
     DrawRectangle(pauseButton.x + 22, pauseButton.y + 10, 6, 20, WHITE);
     
-    // 如果暂停，绘制菜单
     if (paused) {
         DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
         DrawText("PAUSED", screenWidth/2 - 70, screenHeight/2 - 120, 40, WHITE);
-        
         DrawRectangleRec(continueButton, Fade(GREEN, 0.8f));
         DrawText("Continue", continueButton.x + 50, continueButton.y + 12, 24, WHITE);
-        
         DrawRectangleRec(quitButton, Fade(RED, 0.8f));
         DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
     }
@@ -424,14 +417,51 @@ void Game::Draw() {
 
 void Game::Run() {
     SetTargetFPS(60);
+    
+    // 菜单
+    Menu menu;
+    menu.Init();
+    while (menu.inMenu && !WindowShouldClose()) {
+        menu.Update();
+        BeginDrawing();
+        ClearBackground(BLACK);
+        menu.Draw(chineseFont);
+        EndDrawing();
+    }
+    
+    switch (menu.mode) {
+        case GameMode::SINGLE_PLAYER:
+            isNetworkGame = false;
+            networkMode = NetworkMode::NONE;
+            break;
+        case GameMode::HOST:
+            isNetworkGame = true;
+            networkMode = NetworkMode::HOST;
+            network.InitAsHost();
+            break;
+        case GameMode::CLIENT:
+            isNetworkGame = true;
+            networkMode = NetworkMode::CLIENT;
+            network.InitAsClient("127.0.0.1");
+            break;
+    }
+    
+    bricks.SetRows(menu.GetBrickRows());
+    
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        
+        // 联机模式：处理网络
+        if (isNetworkGame) {
+            network.Update();
+            UpdateNetwork();
+        }
+        
         ProcessInput();
         Update(dt);
         Draw();
     }
 }
-
 void Game::SpawnPowerUp(Vector2 pos, int type) {
     PowerUp p;
     p.position = pos;
@@ -567,7 +597,6 @@ void Game::ApplyPowerUp(int type) {
             }
             break;
         }
-            
         case 4: // 加分
         {
             score += 100;
@@ -653,7 +682,6 @@ void Game::UpdatePowerUps(float dt) {
             }
         }
     }
-    
     // 更新每个球的无敌状态
     for (auto& b : balls) {
         b.UpdateInvincible(dt);
@@ -741,4 +769,73 @@ void Game::DrawHearts() {
             }
         }
     }
+}
+void Game::UpdateNetwork() {
+    if (!isNetworkGame) return;
+    network.Update();
+    
+    if (networkMode == NetworkMode::HOST) {
+        // 主机发送游戏状态
+        SendGameState();
+        // 主机接收客户端板位置
+        ::GameState clientState;
+        memset(&clientState, 0, sizeof(clientState));
+        if (network.ReceiveGameState(clientState)) {
+            clientPaddleX = clientState.paddle2X;
+        }
+    } else if (networkMode == NetworkMode::CLIENT) {
+        // 客户端发送自己的板位置
+        ::GameState myState;
+        memset(&myState, 0, sizeof(myState));
+        myState.paddle2X = paddle.GetPosition().x;
+        network.SendGameState(myState);
+        
+        // 客户端接收主机发来的游戏状态
+        ::GameState hostState;
+        memset(&hostState, 0, sizeof(hostState));
+                if (network.ReceiveGameState(hostState)) {
+            if (!balls.empty()) {
+                balls[0].SetPosition({hostState.ballX, hostState.ballY});
+                balls[0].SetSpeed({hostState.ballSpeedX, hostState.ballSpeedY});
+            }
+            hostPaddleX = hostState.paddle1X;
+            score = hostState.score1;
+            lives = hostState.lives1;
+            
+            // 同步砖块状态
+            int count = bricks.GetBrickCount();
+            for (int i = 0; i < count && i < 50; i++) {
+                bricks.SetBrickActive(i, hostState.brickActive[i] == 1);
+            }
+        }
+    }
+}
+
+void Game::SendGameState() {
+    if (!network.Connected()) return;
+    
+    ::GameState state;
+    memset(&state, 0, sizeof(state));
+    
+    if (!balls.empty()) {
+        state.ballX = balls[0].GetPosition().x;
+        state.ballY = balls[0].GetPosition().y;
+        state.ballSpeedX = balls[0].GetSpeed().x;
+        state.ballSpeedY = balls[0].GetSpeed().y;
+    }
+    state.paddle1X = paddle.GetPosition().x;
+    state.paddle2X = clientPaddleX;
+    state.score1 = score;
+    state.lives1 = lives;
+    
+    // 同步砖块状态
+    int count = bricks.GetBrickCount();
+    for (int i = 0; i < count && i < 50; i++) {
+        state.brickActive[i] = bricks.IsBrickActive(i) ? 1 : 0;
+    }
+    
+    network.SendGameState(state);
+}
+void Game::ReceiveGameState() {
+    // 已合并到 UpdateNetwork，保留空函数
 }
