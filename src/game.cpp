@@ -345,8 +345,17 @@ void Game::Draw() {
     }
     
     // 画自己的板
+    if (isNetworkGame) {
+        Color myColor = (networkMode == NetworkMode::HOST) ? BLUE : RED;
+        DrawRectangle(paddle.GetPosition().x - paddle.GetSize().x/2,
+                      paddle.GetPosition().y,
+                      paddle.GetSize().x, paddle.GetSize().y,
+                      myColor);
+    } else {
         paddle.Draw();
+    }
     
+    // 画对手的板（联机模式）
     if (isNetworkGame) {
         float opponentX = (networkMode == NetworkMode::HOST) ? clientPaddleX : hostPaddleX;
         Color oppColor = (networkMode == NetworkMode::HOST) ? RED : BLUE;
@@ -795,23 +804,41 @@ void Game::UpdateNetwork() {
         myState.paddle2X = paddle.GetPosition().x;
         network.SendGameState(myState);
         
-        // 客户端接收主机发来的游戏状态
+                // 客户端接收主机发来的游戏状态
         ::GameState hostState;
         memset(&hostState, 0, sizeof(hostState));
         if (network.ReceiveGameState(hostState)) {
-            if (!balls.empty()) {
-                balls[0].SetPosition({hostState.ballX, hostState.ballY});
-                balls[0].SetSpeed({hostState.ballSpeedX, hostState.ballSpeedY});
+            // 同步多球
+            int ballCount = hostState.ballCount;
+            if (ballCount > 0) {
+                balls.clear();
+                for (int i = 0; i < ballCount && i < 12; i++) {
+                    Ball b;
+                    b.SetPosition({hostState.ballX2[i], hostState.ballY2[i]});
+                    b.SetSpeed({hostState.ballSpeedX2[i], hostState.ballSpeedY2[i]});
+                    b.Start(hostState.ballSpeedX2[i], hostState.ballSpeedY2[i]);
+                    if (hostState.isInvincible) {
+                        b.SetInvincible(true, hostState.invincibleTimer);
+                    }
+                    balls.push_back(b);
+                }
             }
+            
             hostPaddleX = hostState.paddle1X;
             paddle.SetWidth(hostState.paddle1Width);
             score = hostState.score1;
             lives = hostState.lives1;
             
-            // 同步砖块状态
+            // 同步道具计时器
+            for (int i = 0; i < 3 && i < 5; i++) {
+                powerUpTimer[i] = hostState.powerUpTimers[i];
+            }
+            
+            // 同步砖块
             int count = bricks.GetBrickCount();
             for (int i = 0; i < count && i < 50; i++) {
                 bricks.SetBrickType(i, hostState.brickType[i]);
+                bricks.SetBrickColor(i, hostState.brickColor[i]);
             }
         }
     }
@@ -820,15 +847,26 @@ void Game::UpdateNetwork() {
 void Game::SendGameState() {
     if (!network.Connected()) return;
     
-    ::GameState state;   // 加 ::
+    ::GameState state;
     memset(&state, 0, sizeof(state));
     
+    // 球的位置
+    state.ballCount = (int)balls.size();
+    for (int i = 0; i < state.ballCount && i < 12; i++) {
+        state.ballX2[i] = balls[i].GetPosition().x;
+        state.ballY2[i] = balls[i].GetPosition().y;
+        state.ballSpeedX2[i] = balls[i].GetSpeed().x;
+        state.ballSpeedY2[i] = balls[i].GetSpeed().y;
+    }
+    // 兼容单球
     if (!balls.empty()) {
         state.ballX = balls[0].GetPosition().x;
         state.ballY = balls[0].GetPosition().y;
         state.ballSpeedX = balls[0].GetSpeed().x;
         state.ballSpeedY = balls[0].GetSpeed().y;
+        state.isInvincible = balls[0].IsInvincible();
     }
+    
     state.paddle1X = paddle.GetPosition().x;
     state.paddle2X = clientPaddleX;
     state.paddle1Width = paddle.GetSize().x;
@@ -836,6 +874,7 @@ void Game::SendGameState() {
     state.score1 = score;
     state.lives1 = lives;
     
+    // 砖块状态
     int count = bricks.GetBrickCount();
     for (int i = 0; i < count && i < 50; i++) {
         if (!bricks.IsBrickActive(i)) {
@@ -847,6 +886,13 @@ void Game::SendGameState() {
         } else {
             state.brickType[i] = 1;
         }
+        state.brickColor[i] = bricks.GetBrickColor(i);
+    }
+    
+    // 道具计时器
+    for (int i = 0; i < 3 && i < 5; i++) {
+        state.activePowerUps[i] = (powerUpTimer[i] > 0) ? i : -1;
+        state.powerUpTimers[i] = powerUpTimer[i];
     }
     
     network.SendGameState(state);

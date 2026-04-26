@@ -32,6 +32,8 @@ private:
     int screenWidth;
 
 public:
+    Color GetBrickColor(int index) const { return bricks[index].color; }
+    void SetBrickColor(int index, Color c) { if (index < (int)bricks.size()) bricks[index].color = c; }
     bool IsBrickExplosive(int index) const { return bricks[index].isExplosive; }
     bool IsBrickEvil(int index) const { return bricks[index].isEvil; }
     void SetBrickType(int index, int type) {
