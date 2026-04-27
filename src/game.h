@@ -36,6 +36,7 @@ struct FloatingText {
 
 class Game {
 private:
+    Rectangle menuButton;          // 暂停菜单：返回主菜单按钮
     bool backToMenu;
     int currentLevel;   
     int currentDifficulty;           // 当前关卡

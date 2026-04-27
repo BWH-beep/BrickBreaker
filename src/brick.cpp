@@ -225,9 +225,9 @@ void BrickManager::LoadPattern(const std::vector<std::vector<int>>& pattern, int
     int rows = (int)pattern.size();
     int cols = (int)pattern[0].size();
     
-    float brickW = 40.0f;
-    float brickH = 18.0f;
-    float gap = 3.0f;
+    float brickW = 22.0f;
+    float brickH = 14.0f;
+    float gap = 2.0f;
     
     Color colors[] = { RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, SKYBLUE };
     
