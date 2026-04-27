@@ -36,7 +36,9 @@ struct FloatingText {
 
 class Game {
 private:
-    int currentLevel;              // 当前关卡
+    bool backToMenu;
+    int currentLevel;   
+    int currentDifficulty;           // 当前关卡
     std::vector<std::vector<int>> levelPatterns;  // 关卡图案
     void InitLevels();             // 初始化关卡
     void NextLevel();              // 下一关
@@ -58,12 +60,13 @@ private:
     BrickManager bricks;
     Font chineseFont;
       
-    enum class GameState {
+   enum class GameState {
     WAITING,
     PLAYING,
     GAMEOVER,
     WIN,
-    LEVEL_COMPLETE  // 新增：过关选择界面
+    LEVEL_COMPLETE,/*过关和失败选择界面*/
+    GAME_OVER_MENU
 };
 
     GameState state;

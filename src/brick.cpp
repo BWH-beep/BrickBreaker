@@ -215,7 +215,7 @@ bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ba
 
 bool BrickManager::AllCleared() {
     for (const auto& brick : bricks) {
-        if (brick.active) return false;
+        if (brick.active && !brick.indestructible) return false;
     }
     return true;
 }
@@ -225,7 +225,7 @@ void BrickManager::LoadPattern(const std::vector<std::vector<int>>& pattern, int
     int rows = (int)pattern.size();
     int cols = (int)pattern[0].size();
     
-    float brickW = 40.0f;  // 变小，图案更精细
+    float brickW = 40.0f;
     float brickH = 18.0f;
     float gap = 3.0f;
     
@@ -233,7 +233,7 @@ void BrickManager::LoadPattern(const std::vector<std::vector<int>>& pattern, int
     
     for (int row = 0; row < rows; row++) {
         for (int col = 0; col < cols; col++) {
-            if (pattern[row][col] == 0) continue;  // 空位
+            if (pattern[row][col] == 0) continue;
             
             Brick brick;
             brick.x = offsetX + col * (brickW + gap);
@@ -241,22 +241,21 @@ void BrickManager::LoadPattern(const std::vector<std::vector<int>>& pattern, int
             brick.width = brickW;
             brick.height = brickH;
             brick.active = true;
+            brick.indestructible = false;
             
             if (pattern[row][col] == 2) {
-                brick.color = GRAY;      // 障碍物（打不碎）
+                brick.color = GRAY;
                 brick.isEvil = false;
                 brick.isExplosive = false;
-                brick.indestructible = true;  // 需要加这个字段
+                brick.indestructible = true;
             } else if (pattern[row][col] == 3) {
                 brick.color = BLACK;
                 brick.isEvil = true;
                 brick.isExplosive = false;
-                brick.indestructible = false;
             } else {
                 brick.color = colors[row % 8];
                 brick.isEvil = false;
                 brick.isExplosive = false;
-                brick.indestructible = false;
             }
             
             bricks.push_back(brick);

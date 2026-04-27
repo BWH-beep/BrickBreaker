@@ -5,39 +5,117 @@
 #include "menu.h"
 
 // 关卡图案定义 (0=空, 1=砖块, 2=障碍物, 3=恶魔)
-std::vector<std::vector<int>> g_levelPatterns[] =  {
-    // 关卡0：菱形
+std::vector<std::vector<int>> g_levelPatterns[3][3] = {
+    // ========== 星星图案 ==========
     {
-        {0,0,0,0,0,1,1,0,0,0,0,0},
-        {0,0,0,0,1,2,1,1,0,0,0,0},
-        {0,0,0,1,1,1,1,1,1,0,0,0},
-        {0,0,1,1,1,1,1,1,1,1,0,0},
-        {0,0,0,1,1,3,1,1,1,0,0,0},
-        {0,0,0,0,1,1,1,1,0,0,0,0},
-        {0,0,0,0,0,1,1,0,0,0,0,0},
+        // Easy：稀疏星星
+        {
+            {0,0,0,0,0,0,0,0,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0},
+            {0,0,0,1,1,1,1,1,0,0,0},
+            {0,0,1,1,1,1,1,1,1,0,0},
+            {0,0,0,1,1,1,1,1,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,0,0},
+        },
+        // Normal：中等星星
+        {
+            {0,0,0,0,0,1,0,0,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0},
+            {0,0,1,1,1,1,1,1,1,0,0},
+            {0,1,1,1,1,1,1,1,1,1,0},
+            {1,1,1,1,2,1,2,1,1,1,1},
+            {0,1,1,1,1,1,1,1,1,1,0},
+            {0,0,1,1,1,1,1,1,1,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0},
+            {0,0,0,0,0,1,0,0,0,0,0},
+        },
+        // Hard：密集星星
+        {
+            {0,0,1,1,1,1,1,1,1,0,0},
+            {0,1,1,1,1,1,1,1,1,1,0},
+            {1,1,1,1,1,1,1,1,1,1,1},
+            {1,1,1,2,1,1,1,2,1,1,1},
+            {1,1,1,1,3,1,3,1,1,1,1},
+            {1,1,1,2,1,1,1,2,1,1,1},
+            {0,1,1,1,1,1,1,1,1,1,0},
+            {0,0,1,1,1,1,1,1,1,0,0},
+            {0,0,0,1,1,1,1,1,0,0,0},
+        },
     },
-    // 关卡1：爱心
+    // ========== 爱心图案 ==========
     {
-        {0,0,1,1,0,0,0,1,1,0,0},
-        {0,1,1,1,1,0,1,1,1,1,0},
-        {1,1,1,1,1,1,1,1,1,1,1},
-        {1,1,1,1,1,1,1,1,1,1,1},
-        {0,1,1,1,1,1,1,1,1,1,0},
-        {0,0,1,1,1,1,1,1,1,0,0},
-        {0,0,0,1,1,1,1,1,0,0,0},
-        {0,0,0,0,1,1,1,0,0,0,0},
-        {0,0,0,0,0,2,0,0,0,0,0},
+        // Easy：稀疏爱心
+        {
+            {0,0,1,1,0,0,0,1,1,0,0},
+            {0,1,1,1,1,0,1,1,1,1,0},
+            {1,1,1,1,1,1,1,1,1,1,1},
+            {0,1,1,1,1,1,1,1,1,1,0},
+            {0,0,1,1,1,1,1,1,1,0,0},
+            {0,0,0,1,1,1,1,1,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0},
+        },
+        // Normal：中等爱心
+        {
+            {0,0,1,1,0,0,0,1,1,0,0},
+            {0,1,1,1,1,0,1,1,1,1,0},
+            {1,1,1,1,1,1,1,1,1,1,1},
+            {1,1,1,2,1,1,1,2,1,1,1},
+            {0,1,1,1,1,1,1,1,1,1,0},
+            {0,0,1,1,1,1,1,1,1,0,0},
+            {0,0,0,1,1,1,1,1,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0},
+            {0,0,0,0,0,2,0,0,0,0,0},
+        },
+        // Hard：密集爱心
+        {
+            {0,1,1,1,1,0,0,1,1,1,1,0},
+            {1,1,1,1,1,1,0,1,1,1,1,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1},
+            {1,1,1,2,1,1,1,1,2,1,1,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1},
+            {0,1,1,1,1,1,1,1,1,1,1,0},
+            {0,0,1,1,1,3,1,3,1,1,0,0},
+            {0,0,0,1,1,1,1,1,1,0,0,0},
+            {0,0,0,0,1,1,1,1,0,0,0,0},
+            {0,0,0,0,0,2,0,0,0,0,0,0},
+        },
     },
-    // 关卡2：猫咪
+    // ========== 猫咪图案 ==========
     {
-        {0,0,1,0,0,0,0,0,1,0,0},
-        {0,1,0,1,0,0,0,1,0,1,0},
-        {0,1,0,0,1,1,1,0,0,1,0},
-        {0,1,0,1,1,1,1,1,0,1,0},
-        {0,0,1,0,0,0,0,0,1,0,0},
-        {0,0,0,1,0,0,0,1,0,0,0},
-        {0,0,0,0,1,1,1,0,0,0,0},
-        {0,0,0,0,0,2,0,0,0,0,0},
+        // Easy：稀疏猫咪
+        {
+            {0,0,1,0,0,0,0,0,1,0,0},
+            {0,1,0,1,0,0,0,1,0,1,0},
+            {0,1,0,0,1,1,1,0,0,1,0},
+            {0,0,1,0,0,0,0,0,1,0,0},
+            {0,0,0,1,0,0,0,1,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0},
+        },
+        // Normal：中等猫咪
+        {
+            {0,0,1,0,0,0,0,0,1,0,0},
+            {0,1,0,1,0,0,0,1,0,1,0},
+            {0,1,0,0,1,1,1,0,0,1,0},
+            {0,1,0,1,1,1,1,1,0,1,0},
+            {0,0,1,0,0,2,0,0,1,0,0},
+            {0,0,0,1,0,0,0,1,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0},
+            {0,0,0,0,0,2,0,0,0,0,0},
+        },
+        // Hard：密集猫咪
+        {
+            {0,1,1,1,0,0,0,1,1,1,0},
+            {1,0,0,0,1,0,1,0,0,0,1},
+            {1,0,0,0,1,1,1,0,0,0,1},
+            {1,0,1,1,1,2,1,1,1,0,1},
+            {1,0,0,0,0,3,0,0,0,0,1},
+            {0,1,1,1,0,0,0,1,1,1,0},
+            {0,0,0,1,1,1,1,1,0,0,0},
+            {0,0,0,0,1,2,1,0,0,0,0},
+            {0,0,0,0,0,1,0,0,0,0,0},
+            {0,0,0,1,1,0,1,1,0,0,0},
+        },
     },
 };
 // 线段与矩形碰撞检测函数
@@ -72,6 +150,7 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
 Game::Game(int width, int height) 
     : screenWidth(width), screenHeight(height), 
       paddle(width, height), bricks(width) {
+    backToMenu = false;
     config = Config::load("config.json");
     steps = config.steps;
     InitWindow(screenWidth, screenHeight, "打砖块");
@@ -156,16 +235,12 @@ void Game::Reset() {
     balls[0].Reset();
     
     paddle.Reset();
-    
-    // 加载第一关图案
-    if (currentLevel == 0 && !isNetworkGame) {
-        int startX = (screenWidth - 12 * 43) / 2;
-        bricks.Reset();
-    } else {
-        bricks.Reset();
-    }
-    
     paddle.SetWidth(originalPaddleWidth);
+    
+    state = GameState::WAITING;
+    score = 0;
+    lives = config.initialLives;
+    int startX = (screenWidth - 12 * 43) / 2;
     state = GameState::WAITING;
     score = 0;
     lives = config.initialLives;
@@ -190,20 +265,40 @@ void Game::ProcessInput() {
         }
         break;
         
-        case GameState::GAMEOVER:
-        if (IsKeyPressed(KEY_SPACE)) {
-            Reset();
+    case GameState::PLAYING:
+        if (isNetworkGame && networkMode == NetworkMode::CLIENT) {
+            paddle.Update(GetFrameTime());
+            ::GameState myState;
+            memset(&myState, 0, sizeof(myState));
+            myState.paddle2X = paddle.GetPosition().x;
+            network.SendGameState(myState);
+        }
+        break;
+        
+    case GameState::GAME_OVER_MENU:
+        if (IsKeyPressed(KEY_R)) {
+            int startX = (screenWidth - 12 * 43) / 2;
+            bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
+            balls.clear();
+            balls.push_back(Ball());
+            balls[0].Reset();
+            paddle.Reset();
+            paddle.SetWidth(originalPaddleWidth);
+            state = GameState::WAITING;
+            score = 0;
+            lives = config.initialLives;
+        }
+        if (IsKeyPressed(KEY_Q)) {
+            backToMenu = true;
         }
         break;
         
     case GameState::LEVEL_COMPLETE:
         if (IsKeyPressed(KEY_N)) {
             NextLevel();
-            state = GameState::WAITING;
         }
         if (IsKeyPressed(KEY_Q)) {
-            state = GameState::WAITING;
-            Reset();
+            backToMenu = true;
         }
         break;
         
@@ -317,7 +412,7 @@ void Game::Update(float dt) {
                                                   dropPowerUp, dropPos, hitEvil, hitExplosive);
                 if (hitEvil) {
                     if (!ball.IsInvincible()) {
-                        state = GameState::GAMEOVER;
+                        state = GameState::GAME_OVER_MENU;
                         ball.Stop();
                         return;
                     }
@@ -353,7 +448,7 @@ void Game::Update(float dt) {
         if (balls.empty()) {
             lives--;
             if (lives <= 0) {
-                state = GameState::GAMEOVER;
+                state = GameState::GAME_OVER_MENU;
             } else {
                 balls.clear();
                 balls.push_back(Ball());
@@ -422,21 +517,24 @@ void Game::Draw() {
         DrawChineseText("左右键移动板子", screenWidth/2 - 100, screenHeight/2 + 50, 24, WHITE);
     }
     
-    if (state == GameState::GAMEOVER){
-        DrawChineseText("游戏结束", screenWidth/2 - 70, screenHeight/2 - 60, 48, RED);
+        if (state == GameState::GAME_OVER_MENU) {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
+        DrawChineseText("游戏结束", screenWidth/2 - 70, screenHeight/2 - 80, 48, RED);
         char finalScore[50] = {0};
         sprintf(finalScore, "最终得分: %d", score);
-        DrawChineseText(finalScore, screenWidth/2 - 80, screenHeight/2 - 10, 28, WHITE);
-        DrawChineseText("按空格键重新开始", screenWidth/2 - 110, screenHeight/2 + 40, 24, WHITE);
+        DrawChineseText(finalScore, screenWidth/2 - 80, screenHeight/2 - 30, 28, WHITE);
+        DrawChineseText("按 R 重新开始本关", screenWidth/2 - 110, screenHeight/2 + 20, 24, GOLD);
+        DrawChineseText("按 Q 返回主菜单", screenWidth/2 - 110, screenHeight/2 + 55, 24, GOLD);
     }
     
     if (state == GameState::LEVEL_COMPLETE) {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
         DrawChineseText("过关!", screenWidth/2 - 40, screenHeight/2 - 80, 56, GREEN);
         char finalScore[50] = {0};
         sprintf(finalScore, "得分: %d", score);
         DrawChineseText(finalScore, screenWidth/2 - 60, screenHeight/2 - 30, 28, WHITE);
-        DrawChineseText("按 N 进入下一关", screenWidth/2 - 90, screenHeight/2 + 20, 24, WHITE);
-        DrawChineseText("按 Q 返回主菜单", screenWidth/2 - 90, screenHeight/2 + 55, 24, WHITE);
+        DrawChineseText("按 N 进入下一关", screenWidth/2 - 90, screenHeight/2 + 20, 24, GOLD);
+        DrawChineseText("按 Q 返回主菜单", screenWidth/2 - 90, screenHeight/2 + 55, 24, GOLD);
     }
     
     // 特效绘制
@@ -475,51 +573,63 @@ void Game::Draw() {
 void Game::Run() {
     SetTargetFPS(60);
     
-    // 菜单
-    Menu menu;
-    menu.Init();
-    while (menu.inMenu && !WindowShouldClose()) {
-        menu.Update();
-        BeginDrawing();
-        ClearBackground(BLACK);
-        menu.Draw(chineseFont);
-        EndDrawing();
-    }
-    
-    switch (menu.mode) {
-        case GameMode::SINGLE_PLAYER:
-            isNetworkGame = false;
-            networkMode = NetworkMode::NONE;
-            break;
-        case GameMode::HOST:
-            isNetworkGame = true;
-            networkMode = NetworkMode::HOST;
-            network.InitAsHost();
-            break;
-        case GameMode::CLIENT:
-            isNetworkGame = true;
-            networkMode = NetworkMode::CLIENT;
-            network.InitAsClient("127.0.0.1");
-            break;
-    }
-    
-        if (!isNetworkGame || networkMode == NetworkMode::HOST) {
-        bricks.SetRows(menu.GetBrickRows());
-    }
-    // 客户端不生成砖块，等主机同步
-    
-    while (!WindowShouldClose()) {
-        float dt = GetFrameTime();
-        
-        // 联机模式：处理网络
-        if (isNetworkGame) {
-            network.Update();
-            UpdateNetwork();
+    bool running = true;
+    while (running && !WindowShouldClose()) {
+        // 菜单阶段
+        Menu menu;
+        menu.Init();
+        while (menu.inMenu && !WindowShouldClose()) {
+            menu.Update();
+            BeginDrawing();
+            ClearBackground(BLACK);
+            menu.Draw(chineseFont);
+            EndDrawing();
         }
         
-        ProcessInput();
-        Update(dt);
-        Draw();
+        if (WindowShouldClose()) break;
+        
+        // 根据菜单选择配置游戏
+        switch (menu.mode) {
+            case GameMode::SINGLE_PLAYER:
+                isNetworkGame = false;
+                networkMode = NetworkMode::NONE;
+                break;
+            case GameMode::HOST:
+                isNetworkGame = true;
+                networkMode = NetworkMode::HOST;
+                network.InitAsHost();
+                break;
+            case GameMode::CLIENT:
+                isNetworkGame = true;
+                networkMode = NetworkMode::CLIENT;
+                network.InitAsClient("127.0.0.1");
+                break;
+        }
+        
+        // 加载选中难度的关卡图案
+        int startX = (screenWidth - 12 * 43) / 2;
+        bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
+        currentLevel = menu.selectedDiff;
+        currentDifficulty = menu.selectedDiff;
+        
+        backToMenu = false;
+        Reset();   // 重置游戏状态（球、板子、分数等）
+        
+        // 游戏主循环
+        while (!WindowShouldClose() && !backToMenu) {
+            float dt = GetFrameTime();
+            
+            if (isNetworkGame) {
+                network.Update();
+                UpdateNetwork();
+            }
+            
+            ProcessInput();
+            Update(dt);
+            Draw();
+        }
+        
+        // 如果按了 Q 则回到外层菜单循环
     }
 }
 void Game::SpawnPowerUp(Vector2 pos, int type) {
@@ -947,7 +1057,13 @@ void Game::NextLevel() {
     currentLevel++;
     if (currentLevel >= 3) currentLevel = 0;
     
-    int startX = (screenWidth - 12 * 43) / 2;  // 居中
+    int startX = (screenWidth - 12 * 43) / 2;
     int startY = 100;
-    bricks.LoadPattern(g_levelPatterns[currentLevel], startX, startY);
+    bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, startY);
+    
+    state = GameState::WAITING;
+    balls.clear();
+    balls.push_back(Ball());
+    balls[0].Reset();
+    paddle.Reset();
 }

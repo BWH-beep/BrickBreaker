@@ -57,24 +57,24 @@ struct Menu {
     }
     
     void Draw(Font font) {
-        DrawRectangle(0, 0, 800, 600, Fade(BLACK, 0.85f));
+        DrawRectangle(0, 0, 800, 600, Fade(BLACK, 0.95f));
         
         const char* title = "BRICK BREAKER";
         Vector2 titleSize = MeasureTextEx(font, title, 60, 2);
         DrawTextEx(font, title, (Vector2){400 - titleSize.x/2, 80}, 60, 2, YELLOW);
         
-        DrawTextEx(font, "Game Mode:", (Vector2){250, 200}, 28, 2, WHITE);
+        DrawTextEx(font, "Game Mode:", (Vector2){200, 200}, 28, 2, WHITE);
         const char* modes[] = { "Single Player", "Create Room (Host)", "Join Room (Client)" };
         for (int i = 0; i < 3; i++) {
-            Color color = (selectedMode == i) ? YELLOW : GRAY;
-            DrawTextEx(font, modes[i], (Vector2){320, 200 + i * 40}, 24, 2, color);
+            Color color = (selectedMode == i) ? YELLOW : (Color){200, 200, 200, 255};
+            DrawTextEx(font, modes[i], (Vector2){380, 200 + i * 40}, 24, 2, color);
         }
         
-        DrawTextEx(font, "Difficulty:", (Vector2){250, 360}, 28, 2, WHITE);
-        const char* diffs[] = { "Easy (3 rows)", "Normal (5 rows)", "Hard (7 rows)" };
+        DrawTextEx(font, "Difficulty:", (Vector2){200, 360}, 28, 2, WHITE);
+        const char* diffs[] = { "Level 1 (Easy)", "Level 2 (Normal)", "Level 3 (Hard)" };
         for (int i = 0; i < 3; i++) {
-            Color color = (selectedDiff == i) ? YELLOW : GRAY;
-            DrawTextEx(font, diffs[i], (Vector2){320, 360 + i * 40}, 24, 2, color);
+            Color color = (selectedDiff == i) ? YELLOW : (Color){200, 200, 255, 255};
+            DrawTextEx(font, diffs[i], (Vector2){380, 360 + i * 40}, 24, 2, color);
         }
         
         DrawTextEx(font, "<- -> / A D : Change Mode", (Vector2){200, 520}, 20, 2, GRAY);
