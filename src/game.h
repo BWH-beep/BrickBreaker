@@ -36,6 +36,11 @@ struct FloatingText {
 
 class Game {
 private:
+    int currentLevel;              // 当前关卡
+    std::vector<std::vector<int>> levelPatterns;  // 关卡图案
+    void InitLevels();             // 初始化关卡
+    void NextLevel();              // 下一关
+    void LoadLevel(int level);     // 加载指定关卡
     float clientPaddleX = 400;   // 客户端板位置（主机用）
     float hostPaddleX = 400;     // 主机板位置（客户端用）
     NetworkManager network;          // 网络管理器
@@ -54,11 +59,12 @@ private:
     Font chineseFont;
       
     enum class GameState {
-        WAITING,
-        PLAYING,
-        GAMEOVER,
-        WIN
-    };
+    WAITING,
+    PLAYING,
+    GAMEOVER,
+    WIN,
+    LEVEL_COMPLETE  // 新增：过关选择界面
+};
 
     GameState state;
     int score;       

@@ -189,6 +189,12 @@ bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ba
                     return true;
                 }
                 
+                // 不可破坏砖块（障碍物）：只反弹，不消失
+                if (brick.indestructible) {
+                    ballSpeed.y *= -1;
+                    return true;
+                }
+                
                 // 普通砖块
                 brick.active = false;
                 ballSpeed.y *= -1;
@@ -212,4 +218,48 @@ bool BrickManager::AllCleared() {
         if (brick.active) return false;
     }
     return true;
+}
+void BrickManager::LoadPattern(const std::vector<std::vector<int>>& pattern, int offsetX, int offsetY) {
+    bricks.clear();
+    
+    int rows = (int)pattern.size();
+    int cols = (int)pattern[0].size();
+    
+    float brickW = 40.0f;  // 变小，图案更精细
+    float brickH = 18.0f;
+    float gap = 3.0f;
+    
+    Color colors[] = { RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, SKYBLUE };
+    
+    for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
+            if (pattern[row][col] == 0) continue;  // 空位
+            
+            Brick brick;
+            brick.x = offsetX + col * (brickW + gap);
+            brick.y = offsetY + row * (brickH + gap);
+            brick.width = brickW;
+            brick.height = brickH;
+            brick.active = true;
+            
+            if (pattern[row][col] == 2) {
+                brick.color = GRAY;      // 障碍物（打不碎）
+                brick.isEvil = false;
+                brick.isExplosive = false;
+                brick.indestructible = true;  // 需要加这个字段
+            } else if (pattern[row][col] == 3) {
+                brick.color = BLACK;
+                brick.isEvil = true;
+                brick.isExplosive = false;
+                brick.indestructible = false;
+            } else {
+                brick.color = colors[row % 8];
+                brick.isEvil = false;
+                brick.isExplosive = false;
+                brick.indestructible = false;
+            }
+            
+            bricks.push_back(brick);
+        }
+    }
 }

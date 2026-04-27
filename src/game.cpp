@@ -4,6 +4,42 @@
 #include <algorithm> 
 #include "menu.h"
 
+// 关卡图案定义 (0=空, 1=砖块, 2=障碍物, 3=恶魔)
+std::vector<std::vector<int>> g_levelPatterns[] =  {
+    // 关卡0：菱形
+    {
+        {0,0,0,0,0,1,1,0,0,0,0,0},
+        {0,0,0,0,1,2,1,1,0,0,0,0},
+        {0,0,0,1,1,1,1,1,1,0,0,0},
+        {0,0,1,1,1,1,1,1,1,1,0,0},
+        {0,0,0,1,1,3,1,1,1,0,0,0},
+        {0,0,0,0,1,1,1,1,0,0,0,0},
+        {0,0,0,0,0,1,1,0,0,0,0,0},
+    },
+    // 关卡1：爱心
+    {
+        {0,0,1,1,0,0,0,1,1,0,0},
+        {0,1,1,1,1,0,1,1,1,1,0},
+        {1,1,1,1,1,1,1,1,1,1,1},
+        {1,1,1,1,1,1,1,1,1,1,1},
+        {0,1,1,1,1,1,1,1,1,1,0},
+        {0,0,1,1,1,1,1,1,1,0,0},
+        {0,0,0,1,1,1,1,1,0,0,0},
+        {0,0,0,0,1,1,1,0,0,0,0},
+        {0,0,0,0,0,2,0,0,0,0,0},
+    },
+    // 关卡2：猫咪
+    {
+        {0,0,1,0,0,0,0,0,1,0,0},
+        {0,1,0,1,0,0,0,1,0,1,0},
+        {0,1,0,0,1,1,1,0,0,1,0},
+        {0,1,0,1,1,1,1,1,0,1,0},
+        {0,0,1,0,0,0,0,0,1,0,0},
+        {0,0,0,1,0,0,0,1,0,0,0},
+        {0,0,0,0,1,1,1,0,0,0,0},
+        {0,0,0,0,0,2,0,0,0,0,0},
+    },
+};
 // 线段与矩形碰撞检测函数
 bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitPoint) {
     // 检查矩形的四条边
@@ -110,31 +146,30 @@ void Game::LoadFont() {
     delete[] codepoints;
 }
 void Game::Reset() {
-    // 清空道具
     powerUps.clear();
     for (int i = 0; i < 6; i++) {
         powerUpTimer[i] = 0.0f;
     }
     
-    // 重置球
     balls.clear();
     balls.push_back(Ball());
     balls[0].Reset();
     
-        paddle.Reset();
-    if (!isNetworkGame || networkMode == NetworkMode::HOST) {
+    paddle.Reset();
+    
+    // 加载第一关图案
+    if (currentLevel == 0 && !isNetworkGame) {
+        int startX = (screenWidth - 12 * 43) / 2;
+        bricks.Reset();
+    } else {
         bricks.Reset();
     }
     
-    // 强制重置板子宽度为原始宽度
-    originalPaddleWidth = config.paddleWidth;  // 从配置读取原始宽度
     paddle.SetWidth(originalPaddleWidth);
-    
     state = GameState::WAITING;
     score = 0;
     lives = config.initialLives;
 }
-
 void Game::ProcessInput() {
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         Vector2 mousePos = GetMousePosition();
@@ -155,9 +190,19 @@ void Game::ProcessInput() {
         }
         break;
         
-    case GameState::GAMEOVER:
-    case GameState::WIN:
+        case GameState::GAMEOVER:
         if (IsKeyPressed(KEY_SPACE)) {
+            Reset();
+        }
+        break;
+        
+    case GameState::LEVEL_COMPLETE:
+        if (IsKeyPressed(KEY_N)) {
+            NextLevel();
+            state = GameState::WAITING;
+        }
+        if (IsKeyPressed(KEY_Q)) {
+            state = GameState::WAITING;
             Reset();
         }
         break;
@@ -319,7 +364,7 @@ void Game::Update(float dt) {
         }
 
         if (bricks.AllCleared()) {
-            state = GameState::WIN;
+            state = GameState::LEVEL_COMPLETE;
         }
     }
 }
@@ -385,12 +430,13 @@ void Game::Draw() {
         DrawChineseText("按空格键重新开始", screenWidth/2 - 110, screenHeight/2 + 40, 24, WHITE);
     }
     
-    if (state == GameState::WIN) {
-        DrawChineseText("胜利", screenWidth/2 - 40, screenHeight/2 - 60, 56, GREEN);
+    if (state == GameState::LEVEL_COMPLETE) {
+        DrawChineseText("过关!", screenWidth/2 - 40, screenHeight/2 - 80, 56, GREEN);
         char finalScore[50] = {0};
-        sprintf(finalScore, "最终得分: %d", score);
-        DrawChineseText(finalScore, screenWidth/2 - 80, screenHeight/2 - 10, 28, WHITE);
-        DrawChineseText("按空格键重新开始", screenWidth/2 - 110, screenHeight/2 + 40, 24, WHITE);
+        sprintf(finalScore, "得分: %d", score);
+        DrawChineseText(finalScore, screenWidth/2 - 60, screenHeight/2 - 30, 28, WHITE);
+        DrawChineseText("按 N 进入下一关", screenWidth/2 - 90, screenHeight/2 + 20, 24, WHITE);
+        DrawChineseText("按 Q 返回主菜单", screenWidth/2 - 90, screenHeight/2 + 55, 24, WHITE);
     }
     
     // 特效绘制
@@ -896,4 +942,12 @@ void Game::SendGameState() {
     }
     
     network.SendGameState(state);
+}
+void Game::NextLevel() {
+    currentLevel++;
+    if (currentLevel >= 3) currentLevel = 0;
+    
+    int startX = (screenWidth - 12 * 43) / 2;  // 居中
+    int startY = 100;
+    bricks.LoadPattern(g_levelPatterns[currentLevel], startX, startY);
 }

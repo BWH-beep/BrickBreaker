@@ -18,6 +18,7 @@ struct Brick {
     Color color;
     bool isEvil;
     bool isExplosive;
+    bool indestructible;  // 新增：不可破坏
 };
 
 class BrickManager {
@@ -32,6 +33,7 @@ private:
     int screenWidth;
 
 public:
+    void LoadPattern(const std::vector<std::vector<int>>& pattern, int offsetX, int offsetY);
     Color GetBrickColor(int index) const { return bricks[index].color; }
     void SetBrickColor(int index, Color c) { if (index < (int)bricks.size()) bricks[index].color = c; }
     bool IsBrickExplosive(int index) const { return bricks[index].isExplosive; }
