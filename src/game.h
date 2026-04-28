@@ -12,6 +12,7 @@
 #include "network_manager.h"
 #include <future>
 #include <thread>
+#include <atomic>
 
 // 特效粒子结构
 struct EffectParticle {
@@ -38,7 +39,7 @@ struct FloatingText {
 
 class Game {
 private:
-    bool isLoading;                     // 是否正在加载
+    std::atomic<bool> isLoading;                   // 是否正在加载
     std::future<void> loadFuture;       // 异步加载任务
     int pendingLevel;                   // 等待加载的关卡
     int pendingDifficulty;              // 等待加载的难度

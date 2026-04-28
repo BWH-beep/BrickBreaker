@@ -208,7 +208,7 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
 Game::Game(int width, int height) 
     : screenWidth(width), screenHeight(height), 
       paddle(width, height), bricks(width) {
-    isLoading = false;
+    isLoading.store(false);
     pendingLevel = 0;
     pendingDifficulty = 0;
     menuButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 + 110, 200, 50 };
@@ -1154,9 +1154,8 @@ void Game::NextLevel() {
     StartAsyncLoad(nextLevel, currentDifficulty);
 }
 void Game::StartAsyncLoad(int level, int difficulty) {
-    if (isLoading) return;
-    
-    isLoading = true;
+    if (isLoading.load()) return;
+    isLoading.store(true);
         // 清空上一关特效
     effectParticles.clear();
     floatingTexts.clear();
@@ -1170,7 +1169,7 @@ void Game::StartAsyncLoad(int level, int difficulty) {
     // 异步加载
     loadFuture = std::async(std::launch::async, [this, level, difficulty]() {
         // 模拟耗时加载
-        std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     });
 }
 
@@ -1194,6 +1193,6 @@ void Game::CheckAsyncLoad() {
         originalPaddleWidth = config.paddleWidth;
         paddle.SetWidth(originalPaddleWidth);
         state = GameState::WAITING;
-        isLoading = false;
+        isLoading.store(false);
     }
 }
