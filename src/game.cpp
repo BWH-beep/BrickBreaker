@@ -3,6 +3,7 @@
 #include <cmath>
 #include <algorithm> 
 #include "menu.h"
+#include <future>
 
 // 关卡图案定义 (0=空, 1=砖块, 2=障碍物, 3=恶魔)
 std::vector<std::vector<int>> g_levelPatterns[3][3] = {
@@ -207,6 +208,9 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
 Game::Game(int width, int height) 
     : screenWidth(width), screenHeight(height), 
       paddle(width, height), bricks(width) {
+    isLoading = false;
+    pendingLevel = 0;
+    pendingDifficulty = 0;
     menuButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 + 110, 200, 50 };
     backToMenu = false;
     config = Config::load("config.json");
@@ -630,6 +634,10 @@ void Game::Draw() {
         DrawRectangleRec(quitButton, Fade(RED, 0.8f));
         DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
     }
+    if (isLoading) {
+        DrawRectangle(0, 0, screenWidth, screenHeight,BLACK);
+        DrawText("Loading...", screenWidth/2 - 80, screenHeight/2 - 20, 40, WHITE);
+    }
     
     EndDrawing();
 }
@@ -688,6 +696,11 @@ void Game::Run() {
             if (isNetworkGame) {
                 network.Update();
                 UpdateNetwork();
+            }
+            if (isLoading) {
+                CheckAsyncLoad();
+                Draw();          // Loading 时只绘制，不更新游戏
+                continue;        // 跳过 Update 和 ProcessInput
             }
             
             ProcessInput();
@@ -1119,7 +1132,7 @@ void Game::SendGameState() {
     
     network.SendGameState(state);
 }
-void Game::NextLevel() {
+/*void Game::NextLevel() {
     currentLevel++;
     if (currentLevel >= 3) currentLevel = 0;
     
@@ -1133,4 +1146,46 @@ void Game::NextLevel() {
     balls[0].Reset();
     paddle.Reset();
     paddle.SetWidth(originalPaddleWidth);
+}直接加载改成异步加载*/
+void Game::NextLevel() {
+    int nextLevel = currentLevel + 1;
+    if (nextLevel >= 3) nextLevel = 0;
+    
+    StartAsyncLoad(nextLevel, currentDifficulty);
+}
+void Game::StartAsyncLoad(int level, int difficulty) {
+    if (isLoading) return;
+    
+    isLoading = true;
+    pendingLevel = level;
+    pendingDifficulty = difficulty;
+    
+    // 异步加载
+    loadFuture = std::async(std::launch::async, [this, level, difficulty]() {
+        // 模拟耗时加载
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+    });
+}
+
+void Game::CheckAsyncLoad() {
+    if (!isLoading) return;
+    
+    // 检查是否加载完成
+    auto status = loadFuture.wait_for(std::chrono::seconds(0));
+    if (status == std::future_status::ready) {
+        // 应用新关卡
+        currentLevel = pendingLevel;
+        currentDifficulty = pendingDifficulty;
+        
+        int startX = (screenWidth - 12 * 43) / 2;
+        bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
+        
+        balls.clear();
+        balls.push_back(Ball());
+        balls[0].Reset();
+        paddle.Reset();
+        paddle.SetWidth(originalPaddleWidth);
+        state = GameState::WAITING;
+        isLoading = false;
+    }
 }

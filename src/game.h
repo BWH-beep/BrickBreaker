@@ -10,6 +10,8 @@
 #include <vector>
 #include <algorithm>
 #include "network_manager.h"
+#include <future>
+#include <thread>
 
 // 特效粒子结构
 struct EffectParticle {
@@ -36,6 +38,10 @@ struct FloatingText {
 
 class Game {
 private:
+    bool isLoading;                     // 是否正在加载
+    std::future<void> loadFuture;       // 异步加载任务
+    int pendingLevel;                   // 等待加载的关卡
+    int pendingDifficulty;              // 等待加载的难度
     Rectangle menuButton;          // 暂停菜单：返回主菜单按钮
     bool backToMenu;
     int currentLevel;   
@@ -95,6 +101,8 @@ private:
     float shakeTime;
 
 public:
+    void StartAsyncLoad(int level, int difficulty);
+    void CheckAsyncLoad();
     Game(int width, int height);
     ~Game();
     void Run();
