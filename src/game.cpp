@@ -1157,13 +1157,20 @@ void Game::StartAsyncLoad(int level, int difficulty) {
     if (isLoading) return;
     
     isLoading = true;
+        // 清空上一关特效
+    effectParticles.clear();
+    floatingTexts.clear();
+    powerUps.clear();
+    for (int i = 0; i < 6; i++) {
+        powerUpTimer[i] = 0.0f;
+    }
     pendingLevel = level;
     pendingDifficulty = difficulty;
     
     // 异步加载
     loadFuture = std::async(std::launch::async, [this, level, difficulty]() {
         // 模拟耗时加载
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     });
 }
 
@@ -1184,6 +1191,7 @@ void Game::CheckAsyncLoad() {
         balls.push_back(Ball());
         balls[0].Reset();
         paddle.Reset();
+        originalPaddleWidth = config.paddleWidth;
         paddle.SetWidth(originalPaddleWidth);
         state = GameState::WAITING;
         isLoading = false;
