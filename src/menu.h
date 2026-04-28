@@ -17,47 +17,59 @@ enum class Difficulty {
 
 struct Menu {
     GameMode mode;
-    Difficulty diff;
     int selectedMode;
-    int selectedDiff;
+    int selectedLevel;    // 0=爱心, 1=猫咪, 2=蝴蝶
+    int selectedDiff;     // 0=Easy, 1=Normal, 2=Hard
     bool inMenu;
-    bool isChinese;  // true=中文, false=English
+    bool isChinese;
+    bool choosingLevel;   // true=正在选关卡, false=正在选难度
     
     void Init() {
         mode = GameMode::SINGLE_PLAYER;
-        diff = Difficulty::NORMAL;
         selectedMode = 0;
+        selectedLevel = 0;
         selectedDiff = 1;
         inMenu = true;
         isChinese = true;
+        choosingLevel = true;
     }
     
     void Update() {
-        if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-            selectedDiff = (selectedDiff - 1 + 3) % 3;
+        if (choosingLevel) {
+            if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+                selectedLevel = (selectedLevel - 1 + 3) % 3;
+            }
+            if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+                selectedLevel = (selectedLevel + 1) % 3;
+            }
+            if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+                choosingLevel = false;  // 确认关卡，进入难度选择
+            }
+        } else {
+            if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+                selectedDiff = (selectedDiff - 1 + 3) % 3;
+            }
+            if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+                selectedDiff = (selectedDiff + 1) % 3;
+            }
+            if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+                inMenu = false;  // 开始游戏
+            }
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                choosingLevel = true;  // 返回关卡选择
+            }
         }
-        if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-            selectedDiff = (selectedDiff + 1) % 3;
-        }
+        
         if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
             selectedMode = (selectedMode - 1 + 3) % 3;
         }
         if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
             selectedMode = (selectedMode + 1) % 3;
         }
-        if (IsKeyPressed(KEY_L)) {  // L 键切换语言
-            isChinese = !isChinese;
-        }
-        
         mode = (GameMode)selectedMode;
-        switch (selectedDiff) {
-            case 0: diff = Difficulty::EASY; break;
-            case 1: diff = Difficulty::NORMAL; break;
-            case 2: diff = Difficulty::HARD; break;
-        }
         
-        if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-            inMenu = false;
+        if (IsKeyPressed(KEY_L)) {
+            isChinese = !isChinese;
         }
     }
     
@@ -66,53 +78,39 @@ struct Menu {
         
         const char* title = "BRICK BREAKER";
         Vector2 titleSize = MeasureTextEx(font, title, 60, 2);
-        DrawTextEx(font, title, (Vector2){400 - titleSize.x/2, 30}, 60, 2, YELLOW);
+        DrawTextEx(font, title, (Vector2){400 - titleSize.x/2, 20}, 60, 2, YELLOW);
         
-        if (isChinese) {
-            DrawTextEx(font, "游戏模式:", (Vector2){200, 140}, 28, 2, WHITE);
-            const char* modes[] = { "单人游戏", "创建房间", "加入房间" };
-            for (int i = 0; i < 3; i++) {
-                Color color = (selectedMode == i) ? YELLOW : (Color){200, 200, 200, 255};
-                DrawTextEx(font, modes[i], (Vector2){380, 140 + i * 40}, 24, 2, color);
-            }
-            
-            DrawTextEx(font, "难度选择:", (Vector2){200, 300}, 28, 2, WHITE);
-            const char* diffs[] = { "第一关 (简单)", "第二关 (普通)", "第三关 (困难)" };
-            for (int i = 0; i < 3; i++) {
-                Color color = (selectedDiff == i) ? YELLOW : (Color){200, 200, 200, 255};
-                DrawTextEx(font, diffs[i], (Vector2){380, 300 + i * 40}, 24, 2, color);
-            }
-        } else {
-            DrawTextEx(font, "Game Mode:", (Vector2){200, 140}, 28, 2, WHITE);
-            const char* modes[] = { "Single Player", "Create Room", "Join Room" };
-            for (int i = 0; i < 3; i++) {
-                Color color = (selectedMode == i) ? YELLOW : (Color){200, 200, 200, 255};
-                DrawTextEx(font, modes[i], (Vector2){380, 140 + i * 40}, 24, 2, color);
-            }
-            
-            DrawTextEx(font, "Difficulty:", (Vector2){200, 300}, 28, 2, WHITE);
-            const char* diffs[] = { "Level 1 (Easy)", "Level 2 (Normal)", "Level 3 (Hard)" };
-            for (int i = 0; i < 3; i++) {
-                Color color = (selectedDiff == i) ? YELLOW : (Color){200, 200, 200, 255};
-                DrawTextEx(font, diffs[i], (Vector2){380, 300 + i * 40}, 24, 2, color);
-            }
+        // 模式选择（始终显示）
+        DrawTextEx(font, isChinese ? "游戏模式:" : "Game Mode:", (Vector2){50, 120}, 24, 2, WHITE);
+        const char* modes[] = { "Single", "Host", "Client" };
+        for (int i = 0; i < 3; i++) {
+            Color c = (selectedMode == i) ? YELLOW : GRAY;
+            DrawTextEx(font, modes[i], (Vector2){250 + i * 120, 120}, 20, 2, c);
         }
         
-        DrawTextEx(font, isChinese ? "语言: 中文 | 按 L 切换" : "Lang: Chinese | Press L", (Vector2){40, 460}, 18, 2, GRAY);
+        if (choosingLevel) {
+            DrawTextEx(font, isChinese ? "选择关卡:" : "Select Level:", (Vector2){200, 200}, 28, 2, WHITE);
+            const char* levels[] = { "Level 1 - 爱心", "Level 2 - 猫咪", "Level 3 - 蝴蝶" };
+            for (int i = 0; i < 3; i++) {
+                Color c = (selectedLevel == i) ? YELLOW : (Color){200,200,200,255};
+                DrawTextEx(font, levels[i], (Vector2){280, 260 + i * 50}, 28, 2, c);
+            }
+            DrawTextEx(font, isChinese ? "ENTER 确认关卡" : "ENTER to confirm", (Vector2){280, 440}, 20, 2, GRAY);
+        } else {
+            DrawTextEx(font, isChinese ? "选择难度:" : "Select Difficulty:", (Vector2){200, 200}, 28, 2, WHITE);
+            const char* diffs[] = { "Easy", "Normal", "Hard" };
+            for (int i = 0; i < 3; i++) {
+                Color c = (selectedDiff == i) ? YELLOW : (Color){200,200,200,255};
+                DrawTextEx(font, diffs[i], (Vector2){320, 260 + i * 50}, 28, 2, c);
+            }
+            DrawTextEx(font, isChinese ? "ENTER 开始 | ESC 返回选关卡" : "ENTER Start | ESC Back", (Vector2){220, 440}, 20, 2, GRAY);
+        }
         
-        DrawTextEx(font, isChinese ? "<- -> / A D : 切换模式" : "<- -> / A D : Change Mode", (Vector2){200, 520}, 20, 2, GRAY);
-        DrawTextEx(font, isChinese ? "上下 / W S : 切换难度" : "UP DOWN / W S : Difficulty", (Vector2){200, 550}, 20, 2, GRAY);
-        DrawTextEx(font, isChinese ? "空格 / 回车 : 开始游戏" : "SPACE / ENTER : Start", (Vector2){200, 580}, 20, 2, GRAY);
+        DrawTextEx(font, isChinese ? "语言: 中文 | 按 L 切换" : "Lang: Chinese | Press L", (Vector2){40, 500}, 18, 2, GRAY);
+        DrawTextEx(font, isChinese ? "<- -> 切换模式" : "<- -> Change Mode", (Vector2){200, 550}, 20, 2, GRAY);
     }
     
-    int GetBrickRows() {
-        switch (diff) {
-            case Difficulty::EASY: return 3;
-            case Difficulty::NORMAL: return 5;
-            case Difficulty::HARD: return 7;
-        }
-        return 5;
-    }
+    int GetBrickRows() { return 5; }
 };
 
 #endif
