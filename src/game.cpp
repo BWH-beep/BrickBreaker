@@ -483,11 +483,11 @@ void Game::Update(float dt) {
                 if (dropPowerUp) {
                     int type;
                     int rand = GetRandomValue(0, 100);
-                    if (rand < 20) type = 5;
-                    else if (rand < 45) type = 2;
-                    else if (rand < 60) type = 0;
-                    else if (rand < 75) type = 3;
-                    else if (rand < 88) type = 4;
+                    if (rand < 15) type = 5;
+                    else if (rand < 35) type = 2;
+                    else if (rand < 50) type = 0;
+                    else if (rand < 55) type = 3;
+                    else if (rand < 75) type = 4;
                     else type = 1;
                     SpawnPowerUp(dropPos, type);
                 }
@@ -1132,4 +1132,5 @@ void Game::NextLevel() {
     balls.push_back(Ball());
     balls[0].Reset();
     paddle.Reset();
+    paddle.SetWidth(originalPaddleWidth);
 }
