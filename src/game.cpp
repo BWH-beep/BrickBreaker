@@ -644,6 +644,8 @@ void Game::Draw() {
 
 void Game::Run() {
     SetTargetFPS(60);
+    currentLevel = 0;
+    currentDifficulty = 0;
     
     bool running = true;
     while (running && !WindowShouldClose()) {
@@ -679,15 +681,14 @@ void Game::Run() {
                 break;
         }
         
-        // 加载选中难度的关卡图案
-        int startX = (screenWidth - 12 * 43) / 2;
-        bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
+        // 先设置关卡和难度，再加载图案
         currentLevel = menu.selectedLevel;
         currentDifficulty = menu.selectedDiff;
+        int startX = (screenWidth - 12 * 43) / 2;
         bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
         
         backToMenu = false;
-        Reset();   // 重置游戏状态（球、板子、分数等）
+        Reset();
         
         // 游戏主循环
         while (!WindowShouldClose() && !backToMenu) {
@@ -697,18 +698,17 @@ void Game::Run() {
                 network.Update();
                 UpdateNetwork();
             }
-            if (isLoading) {
+            
+            if (isLoading && loadFuture.valid()) {
                 CheckAsyncLoad();
-                Draw();          // Loading 时只绘制，不更新游戏
-                continue;        // 跳过 Update 和 ProcessInput
+                Draw();
+                continue;
             }
             
             ProcessInput();
             Update(dt);
             Draw();
         }
-        
-        // 如果按了 Q 则回到外层菜单循环
     }
 }
 void Game::SpawnPowerUp(Vector2 pos, int type) {

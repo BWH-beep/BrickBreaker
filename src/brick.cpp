@@ -221,14 +221,16 @@ bool BrickManager::AllCleared() {
 }
 void BrickManager::LoadPattern(const std::vector<std::vector<int>>& pattern, int offsetX, int offsetY) {
     bricks.clear();
-    
     int rows = (int)pattern.size();
     int cols = (int)pattern[0].size();
     
     float brickW = 22.0f;
     float brickH = 14.0f;
     float gap = 2.0f;
-    
+    // 根据实际图案宽度自动居中
+    float totalWidth = cols * (brickW + gap) - gap;
+    float centerX = (screenWidth - totalWidth) / 2;
+     TraceLog(LOG_INFO, "cols=%d, totalW=%.0f, centerX=%.0f, screenW=%d", cols, totalWidth, centerX, screenWidth);
     Color colors[] = { RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK, SKYBLUE };
     
     for (int row = 0; row < rows; row++) {
@@ -236,7 +238,7 @@ void BrickManager::LoadPattern(const std::vector<std::vector<int>>& pattern, int
             if (pattern[row][col] == 0) continue;
             
             Brick brick;
-            brick.x = offsetX + col * (brickW + gap);
+            brick.x = centerX + col * (brickW + gap); 
             brick.y = offsetY + row * (brickH + gap);
             brick.width = brickW;
             brick.height = brickH;
