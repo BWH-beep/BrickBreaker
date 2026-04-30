@@ -208,6 +208,8 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
 Game::Game(int width, int height) 
     : screenWidth(width), screenHeight(height), 
       paddle(width, height), bricks(width) {
+    loadedCount = 0;
+    totalTasks = 3;
     isLoading.store(false);
     pendingLevel = 0;
     pendingDifficulty = 0;
@@ -634,9 +636,12 @@ void Game::Draw() {
         DrawRectangleRec(quitButton, Fade(RED, 0.8f));
         DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
     }
-    if (isLoading) {
-        DrawRectangle(0, 0, screenWidth, screenHeight,BLACK);
-        DrawText("Loading...", screenWidth/2 - 80, screenHeight/2 - 20, 40, WHITE);
+    if (isLoading.load()) {
+        DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
+        DrawText("Loading...", screenWidth/2 - 80, screenHeight/2 - 30, 40, YELLOW);
+        char progress[32];
+        sprintf(progress, "%d / %d", loadedCount, totalTasks);
+        DrawText(progress, screenWidth/2 - 30, screenHeight/2 + 20, 30, WHITE);
     }
     
     EndDrawing();
@@ -699,7 +704,7 @@ void Game::Run() {
                 UpdateNetwork();
             }
             
-            if (isLoading && loadFuture.valid()) {
+            if (isLoading.load()) {
                 CheckAsyncLoad();
                 Draw();
                 continue;
@@ -1165,15 +1170,24 @@ void Game::StartAsyncLoad(int level, int difficulty) {
     }
     pendingLevel = level;
     pendingDifficulty = difficulty;
+    loadedCount = 0;
     
     // 异步加载
-    loadFuture = std::async(std::launch::async, [this, level, difficulty]() {
+    /*loadFuture = std::async(std::launch::async, [this, level, difficulty]() {
         // 模拟耗时加载
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    });
+    });*/
+    // 同时启动 3 个异步任务
+    for (int i = 0; i < totalTasks; i++) {
+        std::thread([this](int taskId) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(800 + taskId * 200));
+            std::string msg = "资源" + std::to_string(taskId + 1) + " 加载完成";
+            loadQueue.push(msg);
+        }, i).detach();
+    }
 }
 
-void Game::CheckAsyncLoad() {
+/*void Game::CheckAsyncLoad() {
     if (!isLoading) return;
     
     // 检查是否加载完成
@@ -1194,5 +1208,31 @@ void Game::CheckAsyncLoad() {
         paddle.SetWidth(originalPaddleWidth);
         state = GameState::WAITING;
         isLoading.store(false);
+    }
+}*/
+void Game::CheckAsyncLoad() {
+    if (!isLoading.load()) return;
+    
+    std::string msg;
+    while (loadQueue.pop(msg)) {
+        loadedCount++;
+    }
+    
+    if (loadedCount >= totalTasks) {
+        currentLevel = pendingLevel;
+        currentDifficulty = pendingDifficulty;
+        
+        int startX = (screenWidth - 12 * 43) / 2;
+        bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
+        
+        balls.clear();
+        balls.push_back(Ball());
+        balls[0].Reset();
+        paddle.Reset();
+        originalPaddleWidth = config.paddleWidth;
+        paddle.SetWidth(originalPaddleWidth);
+        state = GameState::WAITING;
+        isLoading.store(false);
+        loadedCount = 0;
     }
 }

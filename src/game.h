@@ -13,6 +13,7 @@
 #include <future>
 #include <thread>
 #include <atomic>
+#include "thread_safe_queue.h"
 
 // 特效粒子结构
 struct EffectParticle {
@@ -39,6 +40,9 @@ struct FloatingText {
 
 class Game {
 private:
+    ThreadSafeQueue loadQueue;         // 消息队列
+    int loadedCount;                   // 已完成任务数
+    int totalTasks;                    // 总任务数
     std::atomic<bool> isLoading;                   // 是否正在加载
     std::future<void> loadFuture;       // 异步加载任务
     int pendingLevel;                   // 等待加载的关卡

@@ -3,30 +3,35 @@
 
 #include <queue>
 #include <mutex>
+#include <string>
 
-template<typename T>
 class ThreadSafeQueue {
 private:
-    std::queue<T> q;
+    std::queue<std::string> q;
     mutable std::mutex mtx;
-    
+
 public:
-    void push(T value) {
+    void push(std::string value) {
         std::lock_guard<std::mutex> lock(mtx);
         q.push(value);
     }
-    
-    bool pop(T& out) {
+
+    bool pop(std::string& out) {
         std::lock_guard<std::mutex> lock(mtx);
         if (q.empty()) return false;
         out = q.front();
         q.pop();
         return true;
     }
-    
+
     bool empty() const {
         std::lock_guard<std::mutex> lock(mtx);
         return q.empty();
+    }
+
+    int size() const {
+        std::lock_guard<std::mutex> lock(mtx);
+        return q.size();
     }
 };
 
