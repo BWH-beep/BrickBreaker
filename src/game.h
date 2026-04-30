@@ -14,6 +14,7 @@
 #include <thread>
 #include <atomic>
 #include "thread_safe_queue.h"
+#include "texture_cache.h"
 
 // 特效粒子结构
 struct EffectParticle {
