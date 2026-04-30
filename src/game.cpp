@@ -209,7 +209,7 @@ Game::Game(int width, int height)
     : screenWidth(width), screenHeight(height), 
       paddle(width, height), bricks(width) {
     loadedCount = 0;
-    totalTasks = 3;
+    totalTasks = 20;
     isLoading.store(false);
     pendingLevel = 0;
     pendingDifficulty = 0;
@@ -637,11 +637,62 @@ void Game::Draw() {
         DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
     }
     if (isLoading.load()) {
+        // 全黑遮罩
         DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
-        DrawText("Loading...", screenWidth/2 - 80, screenHeight/2 - 30, 40, YELLOW);
-        char progress[32];
-        sprintf(progress, "%d / %d", loadedCount, totalTasks);
-        DrawText(progress, screenWidth/2 - 30, screenHeight/2 + 20, 30, WHITE);
+        
+        float boxX = screenWidth - 260;
+        float boxY = screenHeight - 120;
+        float time = GetTime();
+        
+        // 旋转圆环
+        float cx = boxX + 35;
+        float cy = boxY + 40;
+        float radius = 18;
+        DrawRing((Vector2){cx, cy}, radius - 4, radius + 4, 0, 360, 48, Fade(WHITE, 0.15f));
+        for (int i = 0; i < 4; i++) {
+            float startAngle = fmod(time * 200.0f + i * 90.0f, 360.0f);
+            Color arcColor;
+            if (i == 0) arcColor = (Color){255, 100, 100, 255};
+            else if (i == 1) arcColor = (Color){100, 255, 100, 255};
+            else if (i == 2) arcColor = (Color){100, 100, 255, 255};
+            else arcColor = (Color){255, 255, 100, 255};
+            DrawRing((Vector2){cx, cy}, radius - 3, radius + 3, startAngle, startAngle + 60, 36, Fade(arcColor, 0.9f));
+        }
+        
+        // 百分比文字
+        int percent = (totalTasks > 0) ? (loadedCount * 100 / totalTasks) : 0;
+        char progressText[16];
+        sprintf(progressText, "Loading %d%%", percent);
+        DrawText(progressText, boxX + 60, boxY + 8, 22, (Color){220, 220, 255, 255});
+        
+        // 进度条（无边框）
+        float barX = boxX + 60;
+        float barY = boxY + 36;
+        float barW = 150;
+        float barH = 14;
+        DrawRectangle(barX, barY, barW, barH, Fade((Color){40, 40, 40, 255}, 0.6f));
+        
+        // 彩色渐变进度
+        float fillW = barW * percent / 100.0f;
+        for (int px = 0; px < (int)fillW; px++) {
+            float t = (float)px / barW;
+            Color barColor;
+            barColor.r = (unsigned char)(255 * (1.0f - t) + 100 * t);
+            barColor.g = (unsigned char)(100 * (1.0f - t) + 255 * t);
+            barColor.b = (unsigned char)(100 * (1.0f - t) + 200 * t);
+            barColor.a = 255;
+            DrawRectangle(barX + px, barY, 1, barH, barColor);
+        }
+        
+        // 进度条高光
+        DrawRectangle(barX, barY, fillW, barH / 3, Fade(WHITE, 0.15f));
+        
+        // 小圆点闪烁
+        float dotX = barX + fillW;
+        float dotY = barY + barH / 2;
+        float pulse = sin(time * 6.0f) * 3.0f + 5.0f;
+        DrawCircleV((Vector2){dotX, dotY}, pulse, Fade(WHITE, 0.8f));
+        DrawCircleV((Vector2){dotX, dotY}, pulse * 0.5f, WHITE);
     }
     
     EndDrawing();
@@ -1178,13 +1229,21 @@ void Game::StartAsyncLoad(int level, int difficulty) {
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     });*/
     // 同时启动 3 个异步任务
-    for (int i = 0; i < totalTasks; i++) {
+    /*for (int i = 0; i < totalTasks; i++) {
         std::thread([this](int taskId) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(800 + taskId * 200));
-            std::string msg = "资源" + std::to_string(taskId + 1) + " 加载完成";
+            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+            /*std::this_thread::sleep_for(std::chrono::milliseconds(50 + taskId * 15));*/
+           /*std::string msg = "资源" + std::to_string(taskId + 1) + " 加载完成";
             loadQueue.push(msg);
         }, i).detach();
-    }
+    }*/
+    // 一个后台线程，逐步完成 20 个任务，测试用
+    std::thread([this]() {
+        for (int i = 0; i < totalTasks; i++) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+            loadQueue.push("task");
+        }
+    }).detach();
 }
 
 /*void Game::CheckAsyncLoad() {
