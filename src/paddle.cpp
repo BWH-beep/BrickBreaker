@@ -22,13 +22,31 @@ void Paddle::Update(float dt) {
     DrawRectangleV(position, size, BLUE);
 }*/
 void Paddle::Draw() {
-    // 发光效果
-    DrawRectangle(position.x - size.x/2 - 2, position.y - size.y/2 - 2, 
-                  size.x + 4, size.y + 4, Fade(BLUE, 0.3f));
-    DrawRectangle(position.x - size.x/2, position.y - size.y/2, 
-                  size.x, size.y, BLUE);
+    Color baseColor = (Color){ 100, 180, 255, 255 };
+    float x = position.x - size.x / 2;
+    float y = position.y - size.y / 2;
+    
+    // 主挡板
+    DrawRectangleRounded(
+        (Rectangle){x, y, size.x, size.y},
+        0.4f, 12, Fade(baseColor, 0.8f)
+    );
+    
+    // 顶部高光
+    DrawRectangleRounded(
+        (Rectangle){x + 3, y + 1, size.x - 6, size.y * 0.4f},
+        0.3f, 12, Fade(WHITE, 0.3f)
+    );
+    
+    // 底部暗部
+    DrawRectangleRounded(
+        (Rectangle){x + 3, y + size.y * 0.6f, size.x - 6, size.y * 0.35f},
+        0.3f, 12, Fade(BLACK, 0.1f)
+    );
+    
+    // 边框
+    DrawRectangleLines(x, y, size.x, size.y, Fade(WHITE, 0.5f));
 }
-
 void Paddle::Reset() {
     position = { screenWidth/2, screenHeight - 50 };
 }

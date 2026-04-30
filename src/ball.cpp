@@ -73,10 +73,10 @@ void Ball::Draw() {
         ballColor.b = (unsigned char)((sin(time * 4.0f + 4.0f) * 0.5f + 0.5f) * 255);
         ballColor.a = 255;
     } else {
-        ballColor = YELLOW;
+        ballColor = (Color){ 255, 220, 50, 255 };
     }
     
-    // ========== 实心渐变拖尾 ==========
+    // 拖尾
     if (moving) {
         Vector2 dir = speed;
         float spd = sqrt(dir.x * dir.x + dir.y * dir.y);
@@ -84,98 +84,52 @@ void Ball::Draw() {
             dir.x /= spd;
             dir.y /= spd;
             
-            Vector2 perp = { -dir.y, dir.x };
-            
-            // 画多层叠加的线段，形成实心渐变效果
-            int layers = 12;  // 层数
-            for (int layer = 0; layer < layers; layer++) {
-                float layerT = (float)layer / layers;  // 0 = 边缘, 1 = 中心
-                float offset = displayRadius * (1.0f - layerT);  // 从边缘到中心
-                
-                // 每层画一段拖尾
-                int segments = 20;
-                for (int i = 0; i < segments; i++) {
-                    float t = (float)i / segments;
-                    float dist = i * 5.0f;
-                    
-                    // 透明度：边缘淡，中心更淡；越远越淡
-                    float edgeAlpha = 0.15f * (1.0f - layerT);  // 边缘透明度
-                    float distAlpha = 1.0f - t;  // 距离衰减
-                    float alpha = (edgeAlpha + 0.1f) * distAlpha;
-                    
-                    // 粗细：边缘细，中心粗
-                    float thickness = 1.5f + (1.0f - layerT) * 3.0f;
-                    thickness *= (1.0f - t * 0.5f);  // 越远越细
-                    
-                    Vector2 backPos = {
-                        position.x - dir.x * dist,
-                        position.y - dir.y * dist
-                    };
-                    Vector2 backPosNext = {
-                        position.x - dir.x * (dist + 5.0f),
-                        position.y - dir.y * (dist + 5.0f)
-                    };
-                    
-                    // 颜色渐变
-                    Color trailColor;
-                    if (invincible) {
-                        trailColor = ballColor;
-                    } else {
-                        trailColor.r = 255;
-                        trailColor.g = (unsigned char)(200 + 55 * t);
-                        trailColor.b = (unsigned char)(80 + 80 * t);
-                        trailColor.a = 255;
-                    }
-                    
-                    // 左侧
-                    Vector2 left1 = { backPos.x + perp.x * offset, backPos.y + perp.y * offset };
-                    Vector2 left2 = { backPosNext.x + perp.x * offset, backPosNext.y + perp.y * offset };
-                    DrawLineEx(left1, left2, thickness, Fade(trailColor, alpha));
-                    
-                    // 右侧
-                    Vector2 right1 = { backPos.x - perp.x * offset, backPos.y - perp.y * offset };
-                    Vector2 right2 = { backPosNext.x - perp.x * offset, backPosNext.y - perp.y * offset };
-                    DrawLineEx(right1, right2, thickness, Fade(trailColor, alpha));
-                }
-            }
-            
-            // 中心填充：画一串半透明的圆
-            for (int i = 0; i < 15; i++) {
-                float t = (float)i / 15.0f;
-                float dist = i * 6.0f;
-                float alpha = (1.0f - t) * 0.2f;
-                float size = displayRadius * 0.7f * (1.0f - t * 0.5f);
+            for (int i = 1; i <= 12; i++) {
+                float t = (float)i / 12.0f;
+                float dist = i * 5.0f;
+                float alpha = (1.0f - t) * 0.6f;
+                float size = displayRadius * (1.0f - t * 0.7f);
                 
                 Vector2 trailPos = {
                     position.x - dir.x * dist,
                     position.y - dir.y * dist
                 };
                 
-                Color fillColor;
-                if (invincible) {
-                    fillColor = ballColor;
-                } else {
-                    fillColor.r = 255;
-                    fillColor.g = (unsigned char)(220 + 35 * t);
-                    fillColor.b = (unsigned char)(100 + 50 * t);
-                    fillColor.a = 255;
-                }
-                
-                DrawCircleV(trailPos, size, Fade(fillColor, alpha));
+                Color tColor = ballColor;
+                tColor.a = (unsigned char)(alpha * 255);
+                DrawCircleV(trailPos, size, Fade(tColor, alpha));
             }
         }
     }
     
-    // 绘制球体
-    DrawCircleV(position, displayRadius + 4, Fade(ballColor, 0.15f));
-    DrawCircleV(position, displayRadius + 2, Fade(ballColor, 0.3f));
+    // 球体光晕
+    DrawCircleV(position, displayRadius + 5, Fade(ballColor, 0.2f));
+    DrawCircleV(position, displayRadius + 2, Fade(ballColor, 0.4f));
+    
+    // 主球体
     DrawCircleV(position, displayRadius, ballColor);
     
     // 高光
-    Vector2 highlight = { position.x - displayRadius * 0.25f, position.y - displayRadius * 0.25f };
-    DrawCircleV(highlight, displayRadius * 0.45f, Fade(WHITE, 0.25f));
-    DrawCircleV(highlight, displayRadius * 0.2f, Fade(WHITE, 0.5f));
-    DrawCircleV(position, displayRadius * 0.1f, WHITE);
+    DrawCircleV(
+        (Vector2){position.x - displayRadius * 0.25f, position.y - displayRadius * 0.3f},
+        displayRadius * 0.5f, Fade(WHITE, 0.35f)
+    );
+    DrawCircleV(
+        (Vector2){position.x - displayRadius * 0.15f, position.y - displayRadius * 0.2f},
+        displayRadius * 0.2f, WHITE
+    );
+    
+    // 无敌旋转光环
+    if (invincible) {
+        for (int i = 0; i < 4; i++) {
+            float angle = time * 5.0f + i * 90.0f * DEG2RAD;
+            Vector2 starPos = {
+                position.x + cos(angle) * (displayRadius + 12),
+                position.y + sin(angle) * (displayRadius + 12)
+            };
+            DrawCircleV(starPos, 4, GOLD);
+        }
+    }
 }
 void Ball::Start(float speedX, float speedY) {
     moving = true;

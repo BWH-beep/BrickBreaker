@@ -46,21 +46,21 @@ void BrickManager::Reset() {
         }
     }
 }
-
 void BrickManager::Draw() {
     float time = GetTime();
     
     for (const auto& brick : bricks) {
         if (brick.active) {
-            Color drawColor = brick.color;
-            
             if (brick.isExplosive) {
                 float blink = (sin(time * 8.0f) + 1.0f) / 2.0f;
-                drawColor = ColorAlpha(brick.color, 0.5f + 0.5f * blink);
-                DrawRectangle(brick.x, brick.y, brick.width, brick.height, drawColor);
+                Color drawColor = ColorAlpha(brick.color, 0.5f + 0.5f * blink);
+                
+                DrawRectangleRounded(
+                    (Rectangle){brick.x, brick.y, brick.width, brick.height},
+                    0.3f, 8, drawColor
+                );
                 DrawRectangleLines(brick.x, brick.y, brick.width, brick.height, RED);
                 
-                // 画叉叉
                 float cx = brick.x + brick.width / 2;
                 float cy = brick.y + brick.height / 2;
                 DrawLine(cx - 6, cy - 6, cx + 6, cy + 6, RED);
@@ -68,24 +68,39 @@ void BrickManager::Draw() {
                 DrawLine(cx - 7, cy - 7, cx + 7, cy + 7, RED);
                 DrawLine(cx + 7, cy - 7, cx - 7, cy + 7, RED);
             }
-            else if (!brick.isEvil) {
-                float blink = (sin(time * 5.0f) + 1.0f) / 2.0f;
-                drawColor = ColorAlpha(brick.color, 0.6f + 0.4f * blink);
-                DrawRectangle(brick.x, brick.y, brick.width, brick.height, drawColor);
-                DrawRectangleLines(brick.x, brick.y, brick.width, brick.height, WHITE);
-            }
-            
-            if (brick.isEvil) {
-                DrawRectangle(brick.x, brick.y, brick.width, brick.height, BLACK);
+            else if (brick.isEvil) {
+                DrawRectangleRounded(
+                    (Rectangle){brick.x, brick.y, brick.width, brick.height},
+                    0.3f, 8, BLACK
+                );
                 DrawRectangleLines(brick.x, brick.y, brick.width, brick.height, RED);
                 
-                // 画骷髅头
                 float cx = brick.x + brick.width / 2;
                 float cy = brick.y + brick.height / 2;
                 DrawCircle(cx, cy - 2, 6, RED);
                 DrawCircle(cx - 4, cy - 4, 2, WHITE);
                 DrawCircle(cx + 4, cy - 4, 2, WHITE);
                 DrawLine(cx - 3, cy + 2, cx + 3, cy + 2, WHITE);
+            }
+            else {
+                Color baseColor = brick.color;
+                
+                DrawRectangleRounded(
+                    (Rectangle){brick.x, brick.y, brick.width, brick.height},
+                    0.3f, 8, Fade(baseColor, 0.75f)
+                );
+                
+                DrawRectangleRounded(
+                    (Rectangle){brick.x + 2, brick.y, brick.width - 4, brick.height * 0.45f},
+                    0.2f, 8, Fade(WHITE, 0.25f)
+                );
+                
+                DrawRectangleRounded(
+                    (Rectangle){brick.x + 2, brick.y + brick.height * 0.55f, brick.width - 4, brick.height * 0.4f},
+                    0.2f, 8, Fade(BLACK, 0.12f)
+                );
+                
+                DrawRectangleLines(brick.x, brick.y, brick.width, brick.height, Fade(WHITE, 0.4f));
             }
         }
     }
