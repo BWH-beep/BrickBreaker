@@ -208,6 +208,8 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
 Game::Game(int width, int height) 
     : screenWidth(width), screenHeight(height), 
       paddle(width, height), bricks(width) {
+    freezeTimer = 0;
+    isFrozen = false;
     loadedCount = 0;
     totalTasks = 20;
     isLoading.store(false);
@@ -416,17 +418,15 @@ void Game::Update(float dt) {
 
     UpdatePowerUps(dt);
 
-    // 网络更新（放在 state 判断之前）
+    // 网络更新
     if (isNetworkGame) {
         network.Update();
         UpdateNetwork();
     }
 
     if (state == GameState::PLAYING) {
-        // 板子更新
         paddle.Update(dt);
 
-        // 客户端：不执行游戏逻辑，只接收
         if (isNetworkGame && networkMode == NetworkMode::CLIENT) {
             return;
         }
@@ -434,6 +434,10 @@ void Game::Update(float dt) {
         float stepDt = dt / steps;
 
         for (auto& ball : balls) {
+            // 冰冻：球停止运动
+            if (isFrozen) {
+                ball.SetSpeed({0, 0});
+            }
             for (int step = 0; step < steps; step++) {
                 Vector2 oldPos = ball.GetPosition();
                 ball.Update(stepDt);
@@ -531,7 +535,160 @@ void Game::Update(float dt) {
         }
     }
 }
+/*void Game::Update(float dt) {
+    // 暂停菜单的按钮检测
+    if (paused) {
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            Vector2 mousePos = GetMousePosition();
+            if (CheckCollisionPointRec(mousePos, continueButton)) {
+                paused = false;
+            }
+            if (CheckCollisionPointRec(mousePos, quitButton)) {
+                paused = false;
+                state = GameState::WAITING;
+                Reset();
+            }
+            if (CheckCollisionPointRec(mousePos, menuButton)) {
+                paused = false;
+                backToMenu = true;
+            }
+        }
+        return;
+    }
 
+    bricks.UpdateParticles(dt);
+
+    if (flash.life > 0) {
+        flash.life -= dt;
+    }
+
+    for (int i = floatingTexts.size() - 1; i >= 0; i--) {
+        floatingTexts[i].pos.y -= 50 * dt;
+        floatingTexts[i].life -= dt;
+        if (floatingTexts[i].life <= 0) {
+            floatingTexts.erase(floatingTexts.begin() + i);
+        }
+    }
+
+    for (int i = effectParticles.size() - 1; i >= 0; i--) {
+        effectParticles[i].pos.x += effectParticles[i].vel.x * dt;
+        effectParticles[i].pos.y += effectParticles[i].vel.y * dt;
+        effectParticles[i].life -= dt;
+        if (effectParticles[i].life <= 0) {
+            effectParticles.erase(effectParticles.begin() + i);
+        }
+    }
+
+    UpdatePowerUps(dt);
+
+    if (isNetworkGame) {
+        network.Update();
+        UpdateNetwork();
+    }
+
+    if (state == GameState::PLAYING) {
+        paddle.Update(dt);
+
+        if (isNetworkGame && networkMode == NetworkMode::CLIENT) {
+            return;
+        }
+
+        float stepDt = dt / steps;
+
+        for (auto& ball : balls) {
+            if (isFrozen) {
+                ball.SetSpeed({0, 0});
+            }
+            for (int step = 0; step < steps; step++) {
+                Vector2 oldPos = ball.GetPosition();
+                ball.Update(stepDt);
+                Vector2 ballPos = ball.GetPosition();
+                float ballRadius = ball.GetRadius();
+
+                if (ballPos.x - ballRadius < 0) {
+                    ball.SetPositionX(ballRadius);
+                    ball.BounceX();
+                }
+                if (ballPos.x + ballRadius > screenWidth) {
+                    ball.SetPositionX(screenWidth - ballRadius);
+                    ball.BounceX();
+                }
+                if (ballPos.y - ballRadius < 0) {
+                    ball.SetPositionY(ballRadius);
+                    ball.BounceY();
+                }
+
+                Rectangle paddleRect = paddle.GetRect();
+                Rectangle expandedRect = {
+                    paddleRect.x - ballRadius,
+                    paddleRect.y - ballRadius,
+                    paddleRect.width + ballRadius * 2,
+                    paddleRect.height + ballRadius * 2
+                };
+                Vector2 hitPoint;
+                if (LineRectCollision(oldPos, ballPos, expandedRect, hitPoint)) {
+                    if (ball.GetSpeed().y > 0) {
+                        float hitPos = (hitPoint.x - paddle.GetPosition().x) / (paddle.GetSize().x / 2);
+                        if (hitPos > 1) hitPos = 1;
+                        if (hitPos < -1) hitPos = -1;
+                        ball.BounceY();
+                        ball.AddSpeedX(hitPos * 150);
+                        ball.ClampSpeed(500);
+                        ball.SetPositionY(paddleRect.y - ballRadius);
+                    }
+                }
+
+                Vector2 ballSpeed = ball.GetSpeed();
+                bool dropPowerUp = false, hitEvil = false, hitExplosive = false;
+                Vector2 dropPos;
+                bool hit = bricks.CheckCollision(ballPos, ballRadius, ballSpeed, score,
+                                                  dropPowerUp, dropPos, hitEvil, hitExplosive);
+                if (hitEvil) {
+                    if (!ball.IsInvincible()) {
+                        state = GameState::GAME_OVER_MENU;
+                        ball.Stop();
+                        return;
+                    }
+                }
+                if (hit) ball.SetSpeed(ballSpeed);
+                if (dropPowerUp) {
+                    int type = 2;  // 测试：强制火焰分裂
+                    SpawnPowerUp(dropPos, type);
+                }
+            }
+        }
+
+        for (int i = balls.size() - 1; i >= 0; i--) {
+            if (balls[i].GetPosition().y + balls[i].GetRadius() > screenHeight) {
+                if (balls[i].IsInvincible()) {
+                    balls[i].SetPositionY(screenHeight - balls[i].GetRadius());
+                    balls[i].BounceY();
+                    flash.intensity = 0.5f;
+                    flash.life = 0.2f;
+                } else {
+                    balls.erase(balls.begin() + i);
+                }
+            }
+        }
+
+        if (balls.empty()) {
+            lives--;
+            if (lives <= 0) {
+                state = GameState::GAME_OVER_MENU;
+            } else {
+                balls.clear();
+                balls.push_back(Ball());
+                balls[0].Reset();
+                paddle.Reset();
+                state = GameState::WAITING;
+            }
+        }
+
+        if (bricks.AllCleared()) {
+            state = GameState::LEVEL_COMPLETE;
+        }
+    }
+}测试代码*/
 void Game::DrawChineseText(const char* text, int x, int y, int fontSize, Color color) {
     DrawTextEx(chineseFont, text, (Vector2){ (float)x, (float)y }, fontSize, 2, color);
 }
@@ -693,6 +850,99 @@ void Game::Draw() {
         float pulse = sin(time * 6.0f) * 3.0f + 5.0f;
         DrawCircleV((Vector2){dotX, dotY}, pulse, Fade(WHITE, 0.8f));
         DrawCircleV((Vector2){dotX, dotY}, pulse * 0.5f, WHITE);
+    }
+        // 冰封特效
+    if (isFrozen) {
+        float time = GetTime();
+        float progress = 1.0f - (freezeTimer / 4.0f);
+        float slowTime = time * 0.6f;
+        
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade((Color){100, 175, 230, 255}, 0.04f + progress * 0.07f));
+        
+        // 屏幕四边——巨大冰花，缓慢呼吸
+        for (int i = 0; i < 24; i++) {
+            float cx, cy;
+            if (i < 8) { cx = screenWidth * (i / 7.0f); cy = -15; }
+            else if (i < 13) { cx = screenWidth + 15; cy = screenHeight * ((i - 8) / 4.0f); }
+            else if (i < 19) { cx = screenWidth * (1.0f - (i - 13) / 5.0f); cy = screenHeight + 15; }
+            else { cx = -15; cy = screenHeight * (1.0f - (i - 19) / 4.0f); }
+            
+            float breathe = sin(slowTime * 1.2f + i * 0.5f) * 0.3f + 0.7f;
+            float sz = 35 + progress * 65 * breathe;
+            float alpha = 0.55f + progress * 0.45f * breathe;
+            Vector2 center = {cx, cy};
+            
+            for (int petal = 0; petal < 10; petal++) {
+                float baseAngle = petal * 36.0f * DEG2RAD + slowTime * 5.0f * DEG2RAD;
+                float len = sz * (0.55f + 0.45f * sin(slowTime * 1.5f + petal * 0.8f));
+                float width = sz * 0.25f;
+                
+                Vector2 tip = { cx + cos(baseAngle) * len, cy + sin(baseAngle) * len };
+                Vector2 mid = { cx + cos(baseAngle) * len * 0.55f, cy + sin(baseAngle) * len * 0.55f };
+                Vector2 s1 = { mid.x + cos(baseAngle + 90*DEG2RAD) * width, mid.y + sin(baseAngle + 90*DEG2RAD) * width };
+                Vector2 s2 = { mid.x + cos(baseAngle - 90*DEG2RAD) * width, mid.y + sin(baseAngle - 90*DEG2RAD) * width };
+                
+                DrawTriangle(center, s1, s2, Fade((Color){195, 225, 250, 255}, alpha * 0.55f));
+                DrawTriangle(center, tip, s1, Fade((Color){230, 245, 255, 255}, alpha * 0.7f));
+                DrawTriangle(center, tip, s2, Fade((Color){170, 210, 245, 255}, alpha * 0.4f));
+                DrawLineEx(center, tip, 2.0f, Fade(WHITE, alpha * 0.6f));
+                
+                float sideLen = len * 0.55f;
+                for (int side = -1; side <= 1; side += 2) {
+                    Vector2 branchBase = { cx + cos(baseAngle) * len * 0.5f, cy + sin(baseAngle) * len * 0.5f };
+                    float branchAngle = baseAngle + side * 58.0f * DEG2RAD;
+                    Vector2 branchTip = { branchBase.x + cos(branchAngle) * sideLen, branchBase.y + sin(branchAngle) * sideLen };
+                    DrawLineEx(branchBase, branchTip, 1.5f, Fade(WHITE, alpha * 0.5f));
+                    
+                    // 二级分枝
+                    float subLen = sideLen * 0.5f;
+                    Vector2 subTip = { branchTip.x + cos(branchAngle + side * 30*DEG2RAD) * subLen,
+                                       branchTip.y + sin(branchAngle + side * 30*DEG2RAD) * subLen };
+                    DrawLineEx(branchTip, subTip, 1.0f, Fade(WHITE, alpha * 0.35f));
+                }
+            }
+            
+            DrawCircleV(center, sz * 0.25f, Fade(WHITE, alpha * 0.95f));
+            DrawCircleV(center, sz * 0.5f, Fade((Color){220, 240, 255, 255}, alpha * 0.4f));
+        }
+        
+        // 四角巨型冰花
+        Vector2 cnrs[] = {{50,50}, {(float)screenWidth-50, 50}, {(float)screenWidth-50, (float)screenHeight-50}, {50, (float)screenHeight-50}};
+        for (int c = 0; c < 4; c++) {
+            float breathe = sin(slowTime * 1.0f + c) * 0.25f + 0.75f;
+            float sz = 55 + progress * 70 * breathe;
+            float alpha = 0.65f + progress * 0.35f * breathe;
+            
+            for (int petal = 0; petal < 12; petal++) {
+                float angle = petal * 30.0f * DEG2RAD;
+                float len = sz * (0.6f + 0.4f * sin(slowTime * 1.8f + petal * 0.7f));
+                Vector2 tip = { cnrs[c].x + cos(angle) * len, cnrs[c].y + sin(angle) * len };
+                Vector2 mid = { cnrs[c].x + cos(angle) * len * 0.5f, cnrs[c].y + sin(angle) * len * 0.5f };
+                float w = sz * 0.18f;
+                Vector2 s1 = { mid.x + cos(angle + 90*DEG2RAD) * w, mid.y + sin(angle + 90*DEG2RAD) * w };
+                Vector2 s2 = { mid.x + cos(angle - 90*DEG2RAD) * w, mid.y + sin(angle - 90*DEG2RAD) * w };
+                
+                DrawTriangle(cnrs[c], s1, s2, Fade((Color){200, 230, 250, 255}, alpha * 0.55f));
+                DrawTriangle(cnrs[c], tip, s1, Fade((Color){235, 248, 255, 255}, alpha * 0.65f));
+                DrawTriangle(cnrs[c], tip, s2, Fade((Color){175, 215, 245, 255}, alpha * 0.4f));
+                DrawLineEx(cnrs[c], tip, 2.0f, Fade(WHITE, alpha * 0.55f));
+            }
+            DrawCircleV(cnrs[c], sz * 0.2f, Fade(WHITE, alpha * 0.95f));
+            DrawCircleV(cnrs[c], sz * 0.45f, Fade((Color){225, 245, 255, 255}, alpha * 0.35f));
+        }
+        
+        // 飘雪
+        for (const auto& pos : iceCrystals) {
+            float sy = fmod(pos.y + time * 12.0f, screenHeight);
+            float sx = pos.x + sin(time * 0.8f + pos.x) * 15;
+            float sz = 3.0f + sin(time * 3 + pos.x) * 1.5f;
+            DrawCircleV((Vector2){sx, sy}, sz * 4.0f, Fade((Color){160, 205, 240, 255}, 0.15f));
+            DrawCircleV((Vector2){sx, sy}, sz * 2.5f, Fade((Color){195, 225, 250, 255}, 0.3f));
+            DrawCircleV((Vector2){sx, sy}, sz, Fade(WHITE, 0.6f));
+        }
+        
+        DrawRectangleLinesEx((Rectangle){4, 4, screenWidth-8, screenHeight-8}, 4,
+                             Fade((Color){130, 185, 230, 255}, 0.18f + progress * 0.3f));
     }
     
     EndDrawing();
@@ -882,22 +1132,29 @@ void Game::ApplyPowerUp(int type) {
             break;
         }
             
-        case 3: // 慢速球
+        case 3: // 冰冻效果
         {
-            for (auto& b : balls) {
-                Vector2 spd = b.GetSpeed();
-                spd.x *= 0.3f;
-                spd.y *= 0.3f;
-                b.SetSpeed(spd);
+            isFrozen = true;
+            freezeTimer = 4.0f;
+            powerUpTimer[3] = 4.0f;
+            
+            // 生成随机冰晶位置
+            iceCrystals.clear();
+            for (int i = 0; i < 12; i++) {
+                float cx = GetRandomValue(20, screenWidth - 20);
+                float cy = GetRandomValue(20, screenHeight - 20);
+                iceCrystals.push_back({(float)cx, (float)cy});
             }
-            powerUpTimer[3] = 5.0f;
-            for (int i = 0; i < 50; i++) {
+            
+            // 冰晶粒子特效
+            for (int i = 0; i < 40; i++) {
                 EffectParticle p;
-                p.pos = center;
-                p.vel = { (float)GetRandomValue(-200, 200), (float)GetRandomValue(-300, 100) };
-                p.life = 0.5f;
-                p.size = 4;
-                p.color = SKYBLUE;
+                p.pos = { (float)GetRandomValue(0, screenWidth), (float)GetRandomValue(0, screenHeight) };
+                p.vel = { 0, 0 };
+                p.life = 1.5f;
+                p.size = (float)GetRandomValue(3, 8);
+                p.color = (Color){ (unsigned char)GetRandomValue(100, 200), 
+                                   (unsigned char)GetRandomValue(180, 255), 255, 200 };
                 effectParticles.push_back(p);
             }
             break;
@@ -975,6 +1232,8 @@ void Game::UpdatePowerUps(float dt) {
                     paddle.SetWidth(originalPaddleWidth);
                 }
                 if (i == 3) {
+                    isFrozen = false;
+                    iceCrystals.clear();
                     for (auto& b : balls) {
                         b.SetSpeed(b.GetOriginalSpeed());
                     }
@@ -987,6 +1246,16 @@ void Game::UpdatePowerUps(float dt) {
             }
         }
     }
+    
+    // 冰冻计时
+    if (isFrozen) {
+        freezeTimer -= dt;
+        if (freezeTimer <= 0) {
+            isFrozen = false;
+            iceCrystals.clear();
+        }
+    }
+    
     // 更新每个球的无敌状态
     for (auto& b : balls) {
         b.UpdateInvincible(dt);
@@ -1018,8 +1287,111 @@ void Game::UpdatePowerUps(float dt) {
 void Game::DrawPowerUps() {
     for (const auto& p : powerUps) {
         if (p.active) {
-            if (p.type == 5) {
-                // 无敌道具用星星绘制
+            if (p.type == 3) {  // 冰冻冰块
+                float time = GetTime();
+                float breathe = sin(time * 2.0f) * 0.15f + 0.85f;
+                float x = p.position.x;
+                float y = p.position.y;
+                float w = 24;
+                float h = 28;
+                
+                // 冰块主体——浅蓝白半透明
+                DrawRectangleRounded(
+                    (Rectangle){x - w/2, y - h/2, w, h},
+                    0.25f, 12, Fade((Color){180, 220, 250, 255}, 0.7f * breathe)
+                );
+                
+                // 内部透亮
+                DrawRectangleRounded(
+                    (Rectangle){x - w/2 + 3, y - h/2 + 2, w - 6, h - 8},
+                    0.2f, 12, Fade(WHITE, 0.25f)
+                );
+                
+                // 顶面高光（模拟冰块反光）
+                DrawRectangleRounded(
+                    (Rectangle){x - w/2 + 4, y - h/2 + 1, w - 8, h * 0.35f},
+                    0.15f, 8, Fade(WHITE, 0.5f)
+                );
+                
+                // 侧棱高光
+                DrawLineEx((Vector2){x - w/2 + 5, y - h/2 + 3}, (Vector2){x - w/2 + 5, y + h/2 - 5}, 2.5f, Fade(WHITE, 0.4f));
+                DrawLineEx((Vector2){x + w/2 - 5, y - h/2 + 3}, (Vector2){x + w/2 - 5, y + h/2 - 5}, 2.0f, Fade(WHITE, 0.25f));
+                
+                // 底部暗面
+                DrawRectangleRounded(
+                    (Rectangle){x - w/2 + 3, y + h/2 - 5, w - 6, 4},
+                    0.1f, 6, Fade((Color){120, 180, 220, 255}, 0.3f)
+                );
+                
+                // 冰块边框
+                DrawRectangleLinesEx((Rectangle){x - w/2, y - h/2, w, h}, 1.5f, Fade(WHITE, 0.6f));
+                
+                // 内部六边形冰晶纹理
+                DrawPoly((Vector2){x, y}, 6, 6, time * 20.0f, Fade(WHITE, 0.3f));
+                DrawPoly((Vector2){x, y}, 6, 3, -time * 30.0f, Fade(WHITE, 0.5f));
+                
+                // 微光点
+                DrawCircleV((Vector2){x - w/4, y - h/4}, 2.5f, Fade(WHITE, 0.7f));
+                DrawCircleV((Vector2){x + w/5, y}, 2.0f, Fade(WHITE, 0.5f));
+            }
+            else if (p.type == 2) {  // 火焰爆炸
+                float time = GetTime();
+                float x = p.position.x;
+                float y = p.position.y;
+                float sz = 13;
+                
+                // 外层火焰光晕——多层柔光
+                DrawCircleV(p.position, sz + 10, Fade((Color){255, 80, 0, 255}, 0.1f));
+                DrawCircleV(p.position, sz + 6, Fade((Color){255, 130, 20, 255}, 0.15f));
+                DrawCircleV(p.position, sz + 3, Fade((Color){255, 180, 40, 255}, 0.25f));
+                
+                // 火焰舌——细长三角，颜色从白到红
+                for (int i = 0; i < 9; i++) {
+                    float angle = i * 40.0f * DEG2RAD + time * 2.5f;
+                    float flicker = sin(time * 10.0f + i * 1.7f) * 0.3f + 0.7f;
+                    float len = sz * (1.0f + 0.6f * flicker);
+                    float tipX = x + cos(angle) * len;
+                    float tipY = y + sin(angle) * len;
+                    
+                    // 内侧亮白
+                    float innerLen = len * 0.6f;
+                    float ix = x + cos(angle) * innerLen;
+                    float iy = y + sin(angle) * innerLen;
+                    
+                    // 火焰主体——从白到橙到红
+                    DrawTriangle(
+                        p.position,
+                        (Vector2){x + cos(angle + 0.35f) * sz * 0.5f, y + sin(angle + 0.35f) * sz * 0.5f},
+                        (Vector2){tipX, tipY},
+                        Fade((Color){255, 180, 10, 255}, 0.75f)
+                    );
+                    DrawTriangle(
+                        p.position,
+                        (Vector2){x + cos(angle - 0.35f) * sz * 0.5f, y + sin(angle - 0.35f) * sz * 0.5f},
+                        (Vector2){tipX, tipY},
+                        Fade((Color){255, 100, 0, 255}, 0.55f)
+                    );
+                    
+                    // 内焰白亮
+                    DrawLineEx(p.position, (Vector2){ix, iy}, 2.0f + flicker, Fade(WHITE, 0.6f));
+                }
+                
+                // 内核——炽白球体
+                DrawCircleV(p.position, sz * 0.55f, Fade(WHITE, 0.95f));
+                DrawCircleV(p.position, sz * 0.75f, Fade((Color){255, 255, 180, 255}, 0.7f));
+                DrawCircleV(p.position, sz * 0.35f, WHITE);
+                
+                // 火星飞溅
+                for (int s = 0; s < 5; s++) {
+                    float angle = time * 8.0f + s * 72.0f * DEG2RAD;
+                    float dist = sz * 1.4f + sin(time * 12.0f + s) * 5;
+                    Vector2 spark = { x + cos(angle) * dist, y + sin(angle) * dist };
+                    DrawCircleV(spark, 1.5f, Fade((Color){255, 255, 150, 255}, 0.9f));
+                    DrawCircleV(spark, 3.0f, Fade((Color){255, 180, 30, 255}, 0.3f));
+                }
+            }
+            else if (p.type == 5) {
+                // 无敌星星...
                 float time = GetTime();
                 DrawCircleV(p.position, 15, Fade(YELLOW, 0.5f));
                 DrawCircleV(p.position, 10, Fade(WHITE, 0.8f));

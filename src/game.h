@@ -72,6 +72,9 @@ private:
     Paddle paddle;
     BrickManager bricks;
     Font chineseFont;
+    float freezeTimer;           // 冰冻计时器
+    bool isFrozen;               // 是否冰冻中
+    std::vector<Vector2> iceCrystals; // 冰晶位置
       
    enum class GameState {
     WAITING,
