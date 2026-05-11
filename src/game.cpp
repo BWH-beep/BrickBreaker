@@ -205,9 +205,12 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
     return false;
 }
 
-Game::Game(int width, int height) 
-    : screenWidth(width), screenHeight(height), 
-      paddle(width, height), bricks(width) {
+Game::Game(int width, int height)
+    : screenWidth(width), screenHeight(height), paddle(width, height), bricks(width)
+{
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+        particleActive[i] = false;
+    }
     freezeTimer = 0;
     isFrozen = false;
     loadedCount = 0;
@@ -223,27 +226,22 @@ Game::Game(int width, int height)
     LoadFont();
     powerUpTexture = LoadTexture("assets/images/powerup.png");
     
-    // 初始化计时器
     for (int i = 0; i < 6; i++) {
         powerUpTimer[i] = 0.0f;
     }
     
     originalPaddleWidth = paddle.GetSize().x;
 
-    // 初始化球
     balls.clear();
     balls.push_back(Ball());
     Reset();
     background = LoadTexture("assets/images/t04bc12585fc9f34567(1).png");
+    
     paused = false;
-    pauseButton = { screenWidth - 50.0f, 10.0f, 40.0f, 40.0f };
-    continueButton = { screenWidth/2 - 100.0f, screenHeight/2 - 30.0f, 200.0f, 50.0f };
-    quitButton = { screenWidth/2 - 100.0f, screenHeight/2 + 40.0f, 200.0f, 50.0f };
-        paused = false;
     pauseButton = { (float)screenWidth - 50, 10, 40, 40 };
     continueButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 - 30, 200, 50 };
     quitButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 + 40, 200, 50 };
-        // 网络初始化
+    
     isNetworkGame = false;
     networkMode = NetworkMode::NONE;
 }
@@ -407,14 +405,25 @@ void Game::Update(float dt) {
         }
     }
 
-    for (int i = effectParticles.size() - 1; i >= 0; i--) {
+    /*for (int i = effectParticles.size() - 1; i >= 0; i--) {
         effectParticles[i].pos.x += effectParticles[i].vel.x * dt;
         effectParticles[i].pos.y += effectParticles[i].vel.y * dt;
         effectParticles[i].life -= dt;
         if (effectParticles[i].life <= 0) {
             effectParticles.erase(effectParticles.begin() + i);
         }
+    }*/
+    //粒子更新改成对象池
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+    if (particleActive[i]) {
+        particlePool[i].pos.x += particlePool[i].vel.x * dt;
+        particlePool[i].pos.y += particlePool[i].vel.y * dt;
+        particlePool[i].life -= dt;
+        if (particlePool[i].life <= 0) {
+            particleActive[i] = false;
+        }
     }
+}
 
     UpdatePowerUps(dt);
 
@@ -476,12 +485,15 @@ void Game::Update(float dt) {
                         ball.SetPositionY(paddleRect.y - ballRadius);
                     }
                 }
+                //加计时，优化
+
 
                 Vector2 ballSpeed = ball.GetSpeed();
                 bool dropPowerUp = false, hitEvil = false, hitExplosive = false;
                 Vector2 dropPos;
-                bool hit = bricks.CheckCollision(ballPos, ballRadius, ballSpeed, score,
-                                                  dropPowerUp, dropPos, hitEvil, hitExplosive);
+                bool hit = bricks.CheckCollision(ballPos, ballRadius, ballSpeed, score,dropPowerUp, dropPos, hitEvil, hitExplosive);
+
+
                 if (hitEvil) {
                     if (!ball.IsInvincible()) {
                         state = GameState::GAME_OVER_MENU;
@@ -773,10 +785,16 @@ void Game::Draw() {
         DrawTextEx(chineseFont, ft.text, ft.pos, fontSize, 2, Fade(ft.color, ft.life));
     }
     
-    for (const auto& p : effectParticles) {
+    /*for (const auto& p : effectParticles) {
         float size = p.size * (1.0f + (1.0f - p.life));
         DrawCircleV(p.pos, size, Fade(p.color, p.life * 1.5f));
+    }*///改成对象池
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+    if (particleActive[i]) {
+        float size = particlePool[i].size * (1.0f + (1.0f - particlePool[i].life));
+        DrawCircleV(particlePool[i].pos, size, Fade(particlePool[i].color, particlePool[i].life * 1.5f));
     }
+}
     
     // 绘制暂停按钮
     DrawRectangleRec(pauseButton, Fade(GRAY, 0.5f));
@@ -1045,7 +1063,7 @@ void Game::ApplyPowerUp(int type) {
                 p.life = 0.8f;
                 p.size = 4;
                 p.color = GOLD;
-                effectParticles.push_back(p);
+                SpawnParticle(p.pos, p.vel, p.life, p.size, p.color);
             }
             flash.intensity = 0.8f;
             flash.life = 0.3f;
@@ -1066,7 +1084,7 @@ void Game::ApplyPowerUp(int type) {
                 p.life = 0.6f;
                 p.size = 5;
                 p.color = DARKPURPLE;
-                effectParticles.push_back(p);
+                SpawnParticle(p.pos, p.vel, p.life, p.size, p.color);
             }
             break;
         }
@@ -1085,7 +1103,7 @@ void Game::ApplyPowerUp(int type) {
                     if (r == 0) p.color = ORANGE;
                     else if (r == 1) p.color = YELLOW;
                     else p.color = RED;
-                    effectParticles.push_back(p);
+                    SpawnParticle(p.pos, p.vel, p.life, p.size, p.color);
                 }
             }
             
@@ -1155,7 +1173,7 @@ void Game::ApplyPowerUp(int type) {
                 p.size = (float)GetRandomValue(3, 8);
                 p.color = (Color){ (unsigned char)GetRandomValue(100, 200), 
                                    (unsigned char)GetRandomValue(180, 255), 255, 200 };
-                effectParticles.push_back(p);
+                SpawnParticle(p.pos, p.vel, p.life, p.size, p.color);
             }
             break;
         }
@@ -1171,7 +1189,7 @@ void Game::ApplyPowerUp(int type) {
                 p.life = 0.6f;
                 p.size = (i % 2 == 0) ? 5 : 3;
                 p.color = GOLD;
-                effectParticles.push_back(p);
+                SpawnParticle(p.pos, p.vel, p.life, p.size, p.color);
             }
             FloatingText ft4;
         memset(ft4.text, 0, sizeof(ft4.text));
@@ -1204,7 +1222,7 @@ void Game::ApplyPowerUp(int type) {
                     (unsigned char)GetRandomValue(100, 255), 
                     255 
                 };
-                effectParticles.push_back(p);
+                SpawnParticle(p.pos, p.vel, p.life, p.size, p.color);
             }
             
             flash.intensity = 1.0f;
@@ -1585,7 +1603,7 @@ void Game::StartAsyncLoad(int level, int difficulty) {
     if (isLoading.load()) return;
     isLoading.store(true);
         // 清空上一关特效
-    effectParticles.clear();
+    for (int i = 0; i < MAX_PARTICLES; i++) particleActive[i] = false;
     floatingTexts.clear();
     powerUps.clear();
     for (int i = 0; i < 6; i++) {
@@ -1667,3 +1685,16 @@ void Game::CheckAsyncLoad() {
         loadedCount = 0;
     }
 }
+void Game::SpawnParticle(Vector2 pos, Vector2 vel, float life, float size, Color color) {
+    for (int i = 0; i < MAX_PARTICLES; i++) {
+        if (!particleActive[i]) {
+            particlePool[i].pos = pos;
+            particlePool[i].vel = vel;
+            particlePool[i].life = life;
+            particlePool[i].size = size;
+            particlePool[i].color = color;
+            particleActive[i] = true;
+            return;
+        }
+    }
+}//创建一个新粒子

@@ -41,6 +41,7 @@ struct FloatingText {
 
 class Game {
 private:
+    void SpawnParticle(Vector2 pos, Vector2 vel, float life, float size, Color color);
     ThreadSafeQueue loadQueue;         // 消息队列
     int loadedCount;                   // 已完成任务数
     int totalTasks;                    // 总任务数
@@ -60,7 +61,9 @@ private:
     float hostPaddleX = 400;     // 主机板位置（客户端用）
     NetworkManager network;          // 网络管理器
     NetworkMode networkMode;         // 当前网络模式
-    bool isNetworkGame;              // 是否联机模式
+    bool isNetworkGame;              // 是否联机模
+    // “
+    // ''？式
     void UpdateNetwork();           // 网络更新（主机发送，客户端接收）
     void SendGameState();           // 主机发送游戏状态
     void ReceiveGameState();        // 客户端接收游戏状态
@@ -104,7 +107,10 @@ private:
     std::vector<Ball> balls;
     
     // 特效系统
-    std::vector<EffectParticle> effectParticles;
+    //std::vector<EffectParticle> effectParticles;
+    static const int MAX_PARTICLES = 500;
+    EffectParticle particlePool[MAX_PARTICLES];
+    bool particleActive[MAX_PARTICLES];//改成对象池
     std::vector<FloatingText> floatingTexts;
     FlashEffect flash;
     float shakeTime;
