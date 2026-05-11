@@ -962,7 +962,6 @@ void Game::Draw() {
         DrawRectangleLinesEx((Rectangle){4, 4, screenWidth-8, screenHeight-8}, 4,
                              Fade((Color){130, 185, 230, 255}, 0.18f + progress * 0.3f));
     }
-    
     EndDrawing();
 }
 

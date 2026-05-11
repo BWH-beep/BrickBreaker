@@ -23,6 +23,14 @@ struct Brick {
 
 class BrickManager {
 private:
+    // 空间划分网格
+    static const int GRID_COLS = 8;
+    static const int GRID_ROWS = 6;
+    float cellWidth;
+    float cellHeight;
+    std::vector<int> grid[GRID_COLS][GRID_ROWS];  // 每个格子存砖块索引
+    
+    void BuildGrid();  // 每帧重建网格
     std::vector<Brick> bricks;
     std::vector<Particle> particles;
     int brickCols;
@@ -33,6 +41,7 @@ private:
     int screenWidth;
 
 public:
+    void InitGrid(int screenW, int screenH);  // 初始化网格参数
     void LoadPattern(const std::vector<std::vector<int>>& pattern, int offsetX, int offsetY);
     Color GetBrickColor(int index) const { return bricks[index].color; }
     void SetBrickColor(int index, Color c) { if (index < (int)bricks.size()) bricks[index].color = c; }

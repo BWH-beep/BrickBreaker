@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 BrickManager::BrickManager(int width) {
+    InitGrid(width, 600);  // 初始化网格
     screenWidth = width;
     brickCols = 10;
     brickRows = 5;
@@ -167,7 +168,7 @@ void BrickManager::ExplodeArea(float centerX, float centerY, float radius, int& 
     }
 }
 
-bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ballSpeed, int& score, 
+/*bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ballSpeed, int& score, 
                                    bool& dropPowerUp, Vector2& dropPos, bool& hitEvil, bool& hitExplosive) {
     hitEvil = false;
     hitExplosive = false;
@@ -226,6 +227,83 @@ bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ba
         }
     }
     return false;
+}*/
+bool BrickManager::CheckCollision(Vector2 ballPos, float ballRadius, Vector2& ballSpeed, int& score, 
+                                   bool& dropPowerUp, Vector2& dropPos, bool& hitEvil, bool& hitExplosive) {
+    hitEvil = false;
+    hitExplosive = false;
+    
+    // 重建网格
+    BuildGrid();
+    
+    // 确定球在哪个格子
+    int gx = (int)(ballPos.x / cellWidth);
+    int gy = (int)(ballPos.y / cellHeight);
+    
+    // 检测球所在格子及相邻格子
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            int nx = gx + dx;
+            int ny = gy + dy;
+            if (nx < 0 || nx >= GRID_COLS || ny < 0 || ny >= GRID_ROWS) continue;
+            
+            for (int idx : grid[nx][ny]) {
+                Brick& brick = bricks[idx];
+                if (!brick.active) continue;
+                
+                Rectangle brickRect = { brick.x, brick.y, brick.width, brick.height };
+                if (CheckCollisionCircleRec(ballPos, ballRadius, brickRect)) {
+                    // 邪恶砖块
+                    if (brick.isEvil) {
+                        hitEvil = true;
+                        brick.active = false;
+                        SpawnExplosion(brick.x + brick.width/2, brick.y + brick.height/2, RED);
+                        return true;
+                    }
+                    
+                    // 爆炸砖块
+                    if (brick.isExplosive) {
+                        hitExplosive = true;
+                        brick.active = false;
+                        
+                        for (int i = 0; i < 50; i++) {
+                            Particle p;
+                            p.pos = { brick.x + brick.width/2, brick.y + brick.height/2 };
+                            p.vel = { (float)(GetRandomValue(-600, 600)), (float)(GetRandomValue(-600, 600)) };
+                            p.life = 0.8f;
+                            p.color = ORANGE;
+                            particles.push_back(p);
+                        }
+                        
+                        ExplodeArea(brick.x + brick.width/2, brick.y + brick.height/2, 100.0f, score, dropPowerUp, dropPos);
+                        ballSpeed.y *= -1;
+                        score += 50;
+                        return true;
+                    }
+                    
+                    // 不可破坏砖块（障碍物）
+                    if (brick.indestructible) {
+                        ballSpeed.y *= -1;
+                        return true;
+                    }
+                    
+                    // 普通砖块
+                    brick.active = false;
+                    ballSpeed.y *= -1;
+                    score += 10;
+                    
+                    SpawnExplosion(brick.x + brick.width/2, brick.y + brick.height/2, brick.color);
+                    
+                    if (GetRandomValue(0, 100) < 30) {
+                        dropPowerUp = true;
+                        dropPos = { brick.x + brick.width/2, brick.y + brick.height/2 };
+                    }
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 bool BrickManager::AllCleared() {
@@ -276,6 +354,29 @@ void BrickManager::LoadPattern(const std::vector<std::vector<int>>& pattern, int
             }
             
             bricks.push_back(brick);
+        }
+    }
+}
+void BrickManager::InitGrid(int screenW, int screenH) {
+    cellWidth = (float)screenW / GRID_COLS;
+    cellHeight = (float)screenH / GRID_ROWS;
+}
+
+void BrickManager::BuildGrid() {
+    // 清空网格
+    for (int i = 0; i < GRID_COLS; i++) {
+        for (int j = 0; j < GRID_ROWS; j++) {
+            grid[i][j].clear();
+        }
+    }
+    
+    // 把每个活跃砖块放入对应网格
+    for (int idx = 0; idx < (int)bricks.size(); idx++) {
+        if (!bricks[idx].active) continue;
+        int gx = (int)(bricks[idx].x / cellWidth);
+        int gy = (int)(bricks[idx].y / cellHeight);
+        if (gx >= 0 && gx < GRID_COLS && gy >= 0 && gy < GRID_ROWS) {
+            grid[gx][gy].push_back(idx);
         }
     }
 }
