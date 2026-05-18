@@ -12,6 +12,7 @@ private:
     int screenHeight;   // 屏幕高度（用于初始位置）
 
 public:
+    void SetPosition(Vector2 pos) { position = pos; }
     Paddle(int width, int height);  // 构造函数
     void Update(float dt);          // 根据左右键移动
     void Draw();                    // 绘制板子

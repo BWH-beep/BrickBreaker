@@ -41,6 +41,9 @@ struct FloatingText {
 
 class Game {
 private:
+    Rectangle saveButton;
+    void SaveProgress();
+    bool LoadProgress();//存档
     void SpawnParticle(Vector2 pos, Vector2 vel, float life, float size, Color color);
     ThreadSafeQueue loadQueue;         // 消息队列
     int loadedCount;                   // 已完成任务数

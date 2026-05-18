@@ -4,6 +4,29 @@
 #include <algorithm> 
 #include "menu.h"
 #include <future>
+#include <fstream>
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
+std::vector<std::vector<int>> LoadLevelFromJSON(const std::string& path) {
+    std::vector<std::vector<int>> layout;
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        TraceLog(LOG_WARNING, "无法打开关卡文件: %s", path.c_str());
+        return layout;
+    }
+    json j;
+    file >> j;
+    auto jlayout = j["layout"];
+    for (const auto& row : jlayout) {
+        std::vector<int> r;
+        for (const auto& val : row) {
+            r.push_back(val.get<int>());
+        }
+        layout.push_back(r);
+    }
+    return layout;
+}
 
 // 关卡图案定义 (0=空, 1=砖块, 2=障碍物, 3=恶魔)
 std::vector<std::vector<int>> g_levelPatterns[3][3] = {
@@ -211,6 +234,7 @@ Game::Game(int width, int height)
     for (int i = 0; i < MAX_PARTICLES; i++) {
         particleActive[i] = false;
     }
+    saveButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 - 100, 200, 50 };
     freezeTimer = 0;
     isFrozen = false;
     loadedCount = 0;
@@ -353,6 +377,7 @@ void Game::ProcessInput() {
             lives = config.initialLives;
         }
         if (IsKeyPressed(KEY_Q)) {
+            SaveProgress();
             backToMenu = true;
         }
         break;
@@ -360,8 +385,10 @@ void Game::ProcessInput() {
     case GameState::LEVEL_COMPLETE:
         if (IsKeyPressed(KEY_N)) {
             NextLevel();
+            SaveProgress();
         }
         if (IsKeyPressed(KEY_Q)) {
+            SaveProgress();
             backToMenu = true;
         }
         break;
@@ -378,14 +405,17 @@ void Game::Update(float dt) {
             if (CheckCollisionPointRec(mousePos, continueButton)) {
                 paused = false;
             }
-            if (CheckCollisionPointRec(mousePos, quitButton)) {
-                paused = false;
-                state = GameState::WAITING;
-                Reset();
+            if (CheckCollisionPointRec(mousePos, saveButton)) {
+                SaveProgress();
             }
             if (CheckCollisionPointRec(mousePos, menuButton)) {
                 paused = false;
                 backToMenu = true;
+            }
+            if (CheckCollisionPointRec(mousePos, quitButton)) {
+                paused = false;
+                state = GameState::WAITING;
+                Reset();
             }
         }
         return;
@@ -707,7 +737,6 @@ void Game::DrawChineseText(const char* text, int x, int y, int fontSize, Color c
 void Game::Draw() {
     BeginDrawing();
     
-    // 背景铺满屏幕
     float scaleX = (float)screenWidth / background.width;
     float scaleY = (float)screenHeight / background.height;
     float scale = (scaleX > scaleY) ? scaleX : scaleY;
@@ -721,7 +750,6 @@ void Game::Draw() {
         b.Draw();
     }
     
-    // 画自己的板
     if (isNetworkGame) {
         Color myColor = (networkMode == NetworkMode::HOST) ? BLUE : RED;
         DrawRectangle(paddle.GetPosition().x - paddle.GetSize().x/2,
@@ -732,13 +760,12 @@ void Game::Draw() {
         paddle.Draw();
     }
     
-    // 画对手的板（联机模式）
     if (isNetworkGame && network.Connected()) {
         float opponentX = (networkMode == NetworkMode::HOST) ? clientPaddleX : hostPaddleX;
         Color oppColor = (networkMode == NetworkMode::HOST) ? RED : BLUE;
-        DrawRectangle(opponentX - paddle.GetSize().x/2, 
-                      paddle.GetPosition().y, 
-                      paddle.GetSize().x, paddle.GetSize().y, 
+        DrawRectangle(opponentX - paddle.GetSize().x/2,
+                      paddle.GetPosition().y,
+                      paddle.GetSize().x, paddle.GetSize().y,
                       oppColor);
     }
     
@@ -754,7 +781,7 @@ void Game::Draw() {
         DrawChineseText("左右键移动板子", screenWidth/2 - 100, screenHeight/2 + 50, 24, WHITE);
     }
     
-        if (state == GameState::GAME_OVER_MENU) {
+    if (state == GameState::GAME_OVER_MENU) {
         DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
         DrawChineseText("游戏结束", screenWidth/2 - 70, screenHeight/2 - 80, 48, RED);
         char finalScore[50] = {0};
@@ -774,7 +801,6 @@ void Game::Draw() {
         DrawChineseText("按 Q 返回主菜单", screenWidth/2 - 90, screenHeight/2 + 55, 24, GOLD);
     }
     
-    // 特效绘制
     if (flash.life > 0) {
         float alpha = flash.intensity * flash.life * 2;
         DrawRectangle(0, 0, screenWidth, screenHeight, Fade(WHITE, alpha));
@@ -785,41 +811,92 @@ void Game::Draw() {
         DrawTextEx(chineseFont, ft.text, ft.pos, fontSize, 2, Fade(ft.color, ft.life));
     }
     
-    /*for (const auto& p : effectParticles) {
-        float size = p.size * (1.0f + (1.0f - p.life));
-        DrawCircleV(p.pos, size, Fade(p.color, p.life * 1.5f));
-    }*///改成对象池
     for (int i = 0; i < MAX_PARTICLES; i++) {
-    if (particleActive[i]) {
-        float size = particlePool[i].size * (1.0f + (1.0f - particlePool[i].life));
-        DrawCircleV(particlePool[i].pos, size, Fade(particlePool[i].color, particlePool[i].life * 1.5f));
+        if (particleActive[i]) {
+            float size = particlePool[i].size * (1.0f + (1.0f - particlePool[i].life));
+            DrawCircleV(particlePool[i].pos, size, Fade(particlePool[i].color, particlePool[i].life * 1.5f));
+        }
     }
-}
     
-    // 绘制暂停按钮
-    DrawRectangleRec(pauseButton, Fade(GRAY, 0.5f));
-    DrawRectangle(pauseButton.x + 12, pauseButton.y + 10, 6, 20, WHITE);
-    DrawRectangle(pauseButton.x + 22, pauseButton.y + 10, 6, 20, WHITE);
-    
-    if (paused) {
-        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
-        DrawText("PAUSED", screenWidth/2 - 70, screenHeight/2 - 120, 40, WHITE);
-        DrawRectangleRec(continueButton, Fade(GREEN, 0.8f));
-        DrawText("Continue", continueButton.x + 50, continueButton.y + 12, 24, WHITE);
-        DrawRectangleRec(menuButton, Fade(YELLOW, 0.8f));
-        DrawText("Main Menu", menuButton.x + 40, menuButton.y + 12, 24, WHITE);
-        DrawRectangleRec(quitButton, Fade(RED, 0.8f));
-        DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
+    // 冰封特效
+    if (isFrozen) {
+        float time = GetTime();
+        float progress = 1.0f - (freezeTimer / 4.0f);
+        float slowTime = time * 0.6f;
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade((Color){100, 175, 230, 255}, 0.04f + progress * 0.07f));
+        for (int i = 0; i < 24; i++) {
+            float cx, cy;
+            if (i < 8) { cx = screenWidth * (i / 7.0f); cy = -15; }
+            else if (i < 13) { cx = screenWidth + 15; cy = screenHeight * ((i - 8) / 4.0f); }
+            else if (i < 19) { cx = screenWidth * (1.0f - (i - 13) / 5.0f); cy = screenHeight + 15; }
+            else { cx = -15; cy = screenHeight * (1.0f - (i - 19) / 4.0f); }
+            float breathe = sin(slowTime * 1.2f + i * 0.5f) * 0.3f + 0.7f;
+            float sz = 35 + progress * 65 * breathe;
+            float alpha = 0.55f + progress * 0.45f * breathe;
+            Vector2 center = {cx, cy};
+            for (int petal = 0; petal < 10; petal++) {
+                float baseAngle = petal * 36.0f * DEG2RAD + slowTime * 5.0f * DEG2RAD;
+                float len = sz * (0.55f + 0.45f * sin(slowTime * 1.5f + petal * 0.8f));
+                float width = sz * 0.25f;
+                Vector2 tip = { cx + cos(baseAngle) * len, cy + sin(baseAngle) * len };
+                Vector2 mid = { cx + cos(baseAngle) * len * 0.55f, cy + sin(baseAngle) * len * 0.55f };
+                Vector2 s1 = { mid.x + cos(baseAngle + 90*DEG2RAD) * width, mid.y + sin(baseAngle + 90*DEG2RAD) * width };
+                Vector2 s2 = { mid.x + cos(baseAngle - 90*DEG2RAD) * width, mid.y + sin(baseAngle - 90*DEG2RAD) * width };
+                DrawTriangle(center, s1, s2, Fade((Color){195, 225, 250, 255}, alpha * 0.55f));
+                DrawTriangle(center, tip, s1, Fade((Color){230, 245, 255, 255}, alpha * 0.7f));
+                DrawTriangle(center, tip, s2, Fade((Color){170, 210, 245, 255}, alpha * 0.4f));
+                DrawLineEx(center, tip, 2.0f, Fade(WHITE, alpha * 0.6f));
+                float sideLen = len * 0.55f;
+                for (int side = -1; side <= 1; side += 2) {
+                    Vector2 branchBase = { cx + cos(baseAngle) * len * 0.5f, cy + sin(baseAngle) * len * 0.5f };
+                    float branchAngle = baseAngle + side * 58.0f * DEG2RAD;
+                    Vector2 branchTip = { branchBase.x + cos(branchAngle) * sideLen, branchBase.y + sin(branchAngle) * sideLen };
+                    DrawLineEx(branchBase, branchTip, 1.5f, Fade(WHITE, alpha * 0.5f));
+                    float subLen = sideLen * 0.5f;
+                    Vector2 subTip = { branchTip.x + cos(branchAngle + side * 30*DEG2RAD) * subLen, branchTip.y + sin(branchAngle + side * 30*DEG2RAD) * subLen };
+                    DrawLineEx(branchTip, subTip, 1.0f, Fade(WHITE, alpha * 0.35f));
+                }
+            }
+            DrawCircleV(center, sz * 0.25f, Fade(WHITE, alpha * 0.95f));
+            DrawCircleV(center, sz * 0.5f, Fade((Color){220, 240, 255, 255}, alpha * 0.4f));
+        }
+        Vector2 cnrs[] = {{50,50}, {(float)screenWidth-50, 50}, {(float)screenWidth-50, (float)screenHeight-50}, {50, (float)screenHeight-50}};
+        for (int c = 0; c < 4; c++) {
+            float breathe = sin(slowTime * 1.0f + c) * 0.25f + 0.75f;
+            float sz = 55 + progress * 70 * breathe;
+            float alpha = 0.65f + progress * 0.35f * breathe;
+            for (int petal = 0; petal < 12; petal++) {
+                float angle = petal * 30.0f * DEG2RAD;
+                float len = sz * (0.6f + 0.4f * sin(slowTime * 1.8f + petal * 0.7f));
+                Vector2 tip = { cnrs[c].x + cos(angle) * len, cnrs[c].y + sin(angle) * len };
+                Vector2 mid = { cnrs[c].x + cos(angle) * len * 0.5f, cnrs[c].y + sin(angle) * len * 0.5f };
+                float w = sz * 0.18f;
+                Vector2 s1 = { mid.x + cos(angle + 90*DEG2RAD) * w, mid.y + sin(angle + 90*DEG2RAD) * w };
+                Vector2 s2 = { mid.x + cos(angle - 90*DEG2RAD) * w, mid.y + sin(angle - 90*DEG2RAD) * w };
+                DrawTriangle(cnrs[c], s1, s2, Fade((Color){200, 230, 250, 255}, alpha * 0.55f));
+                DrawTriangle(cnrs[c], tip, s1, Fade((Color){235, 248, 255, 255}, alpha * 0.65f));
+                DrawTriangle(cnrs[c], tip, s2, Fade((Color){175, 215, 245, 255}, alpha * 0.4f));
+                DrawLineEx(cnrs[c], tip, 2.0f, Fade(WHITE, alpha * 0.55f));
+            }
+            DrawCircleV(cnrs[c], sz * 0.2f, Fade(WHITE, alpha * 0.95f));
+            DrawCircleV(cnrs[c], sz * 0.45f, Fade((Color){225, 245, 255, 255}, alpha * 0.35f));
+        }
+        for (const auto& pos : iceCrystals) {
+            float sy = fmod(pos.y + time * 12.0f, screenHeight);
+            float sx = pos.x + sin(time * 0.8f + pos.x) * 15;
+            float sz = 3.0f + sin(time * 3 + pos.x) * 1.5f;
+            DrawCircleV((Vector2){sx, sy}, sz * 4.0f, Fade((Color){160, 205, 240, 255}, 0.15f));
+            DrawCircleV((Vector2){sx, sy}, sz * 2.5f, Fade((Color){195, 225, 250, 255}, 0.3f));
+            DrawCircleV((Vector2){sx, sy}, sz, Fade(WHITE, 0.6f));
+        }
+        DrawRectangleLinesEx((Rectangle){4, 4, screenWidth-8, screenHeight-8}, 4, Fade((Color){130, 185, 230, 255}, 0.18f + progress * 0.3f));
     }
+    
     if (isLoading.load()) {
-        // 全黑遮罩
         DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
-        
         float boxX = screenWidth - 260;
         float boxY = screenHeight - 120;
         float time = GetTime();
-        
-        // 旋转圆环
         float cx = boxX + 35;
         float cy = boxY + 40;
         float radius = 18;
@@ -833,21 +910,15 @@ void Game::Draw() {
             else arcColor = (Color){255, 255, 100, 255};
             DrawRing((Vector2){cx, cy}, radius - 3, radius + 3, startAngle, startAngle + 60, 36, Fade(arcColor, 0.9f));
         }
-        
-        // 百分比文字
         int percent = (totalTasks > 0) ? (loadedCount * 100 / totalTasks) : 0;
         char progressText[16];
         sprintf(progressText, "Loading %d%%", percent);
         DrawText(progressText, boxX + 60, boxY + 8, 22, (Color){220, 220, 255, 255});
-        
-        // 进度条（无边框）
         float barX = boxX + 60;
         float barY = boxY + 36;
         float barW = 150;
         float barH = 14;
         DrawRectangle(barX, barY, barW, barH, Fade((Color){40, 40, 40, 255}, 0.6f));
-        
-        // 彩色渐变进度
         float fillW = barW * percent / 100.0f;
         for (int px = 0; px < (int)fillW; px++) {
             float t = (float)px / barW;
@@ -858,110 +929,31 @@ void Game::Draw() {
             barColor.a = 255;
             DrawRectangle(barX + px, barY, 1, barH, barColor);
         }
-        
-        // 进度条高光
         DrawRectangle(barX, barY, fillW, barH / 3, Fade(WHITE, 0.15f));
-        
-        // 小圆点闪烁
         float dotX = barX + fillW;
         float dotY = barY + barH / 2;
         float pulse = sin(time * 6.0f) * 3.0f + 5.0f;
         DrawCircleV((Vector2){dotX, dotY}, pulse, Fade(WHITE, 0.8f));
         DrawCircleV((Vector2){dotX, dotY}, pulse * 0.5f, WHITE);
     }
-        // 冰封特效
-    if (isFrozen) {
-        float time = GetTime();
-        float progress = 1.0f - (freezeTimer / 4.0f);
-        float slowTime = time * 0.6f;
-        
-        DrawRectangle(0, 0, screenWidth, screenHeight, Fade((Color){100, 175, 230, 255}, 0.04f + progress * 0.07f));
-        
-        // 屏幕四边——巨大冰花，缓慢呼吸
-        for (int i = 0; i < 24; i++) {
-            float cx, cy;
-            if (i < 8) { cx = screenWidth * (i / 7.0f); cy = -15; }
-            else if (i < 13) { cx = screenWidth + 15; cy = screenHeight * ((i - 8) / 4.0f); }
-            else if (i < 19) { cx = screenWidth * (1.0f - (i - 13) / 5.0f); cy = screenHeight + 15; }
-            else { cx = -15; cy = screenHeight * (1.0f - (i - 19) / 4.0f); }
-            
-            float breathe = sin(slowTime * 1.2f + i * 0.5f) * 0.3f + 0.7f;
-            float sz = 35 + progress * 65 * breathe;
-            float alpha = 0.55f + progress * 0.45f * breathe;
-            Vector2 center = {cx, cy};
-            
-            for (int petal = 0; petal < 10; petal++) {
-                float baseAngle = petal * 36.0f * DEG2RAD + slowTime * 5.0f * DEG2RAD;
-                float len = sz * (0.55f + 0.45f * sin(slowTime * 1.5f + petal * 0.8f));
-                float width = sz * 0.25f;
-                
-                Vector2 tip = { cx + cos(baseAngle) * len, cy + sin(baseAngle) * len };
-                Vector2 mid = { cx + cos(baseAngle) * len * 0.55f, cy + sin(baseAngle) * len * 0.55f };
-                Vector2 s1 = { mid.x + cos(baseAngle + 90*DEG2RAD) * width, mid.y + sin(baseAngle + 90*DEG2RAD) * width };
-                Vector2 s2 = { mid.x + cos(baseAngle - 90*DEG2RAD) * width, mid.y + sin(baseAngle - 90*DEG2RAD) * width };
-                
-                DrawTriangle(center, s1, s2, Fade((Color){195, 225, 250, 255}, alpha * 0.55f));
-                DrawTriangle(center, tip, s1, Fade((Color){230, 245, 255, 255}, alpha * 0.7f));
-                DrawTriangle(center, tip, s2, Fade((Color){170, 210, 245, 255}, alpha * 0.4f));
-                DrawLineEx(center, tip, 2.0f, Fade(WHITE, alpha * 0.6f));
-                
-                float sideLen = len * 0.55f;
-                for (int side = -1; side <= 1; side += 2) {
-                    Vector2 branchBase = { cx + cos(baseAngle) * len * 0.5f, cy + sin(baseAngle) * len * 0.5f };
-                    float branchAngle = baseAngle + side * 58.0f * DEG2RAD;
-                    Vector2 branchTip = { branchBase.x + cos(branchAngle) * sideLen, branchBase.y + sin(branchAngle) * sideLen };
-                    DrawLineEx(branchBase, branchTip, 1.5f, Fade(WHITE, alpha * 0.5f));
-                    
-                    // 二级分枝
-                    float subLen = sideLen * 0.5f;
-                    Vector2 subTip = { branchTip.x + cos(branchAngle + side * 30*DEG2RAD) * subLen,
-                                       branchTip.y + sin(branchAngle + side * 30*DEG2RAD) * subLen };
-                    DrawLineEx(branchTip, subTip, 1.0f, Fade(WHITE, alpha * 0.35f));
-                }
-            }
-            
-            DrawCircleV(center, sz * 0.25f, Fade(WHITE, alpha * 0.95f));
-            DrawCircleV(center, sz * 0.5f, Fade((Color){220, 240, 255, 255}, alpha * 0.4f));
-        }
-        
-        // 四角巨型冰花
-        Vector2 cnrs[] = {{50,50}, {(float)screenWidth-50, 50}, {(float)screenWidth-50, (float)screenHeight-50}, {50, (float)screenHeight-50}};
-        for (int c = 0; c < 4; c++) {
-            float breathe = sin(slowTime * 1.0f + c) * 0.25f + 0.75f;
-            float sz = 55 + progress * 70 * breathe;
-            float alpha = 0.65f + progress * 0.35f * breathe;
-            
-            for (int petal = 0; petal < 12; petal++) {
-                float angle = petal * 30.0f * DEG2RAD;
-                float len = sz * (0.6f + 0.4f * sin(slowTime * 1.8f + petal * 0.7f));
-                Vector2 tip = { cnrs[c].x + cos(angle) * len, cnrs[c].y + sin(angle) * len };
-                Vector2 mid = { cnrs[c].x + cos(angle) * len * 0.5f, cnrs[c].y + sin(angle) * len * 0.5f };
-                float w = sz * 0.18f;
-                Vector2 s1 = { mid.x + cos(angle + 90*DEG2RAD) * w, mid.y + sin(angle + 90*DEG2RAD) * w };
-                Vector2 s2 = { mid.x + cos(angle - 90*DEG2RAD) * w, mid.y + sin(angle - 90*DEG2RAD) * w };
-                
-                DrawTriangle(cnrs[c], s1, s2, Fade((Color){200, 230, 250, 255}, alpha * 0.55f));
-                DrawTriangle(cnrs[c], tip, s1, Fade((Color){235, 248, 255, 255}, alpha * 0.65f));
-                DrawTriangle(cnrs[c], tip, s2, Fade((Color){175, 215, 245, 255}, alpha * 0.4f));
-                DrawLineEx(cnrs[c], tip, 2.0f, Fade(WHITE, alpha * 0.55f));
-            }
-            DrawCircleV(cnrs[c], sz * 0.2f, Fade(WHITE, alpha * 0.95f));
-            DrawCircleV(cnrs[c], sz * 0.45f, Fade((Color){225, 245, 255, 255}, alpha * 0.35f));
-        }
-        
-        // 飘雪
-        for (const auto& pos : iceCrystals) {
-            float sy = fmod(pos.y + time * 12.0f, screenHeight);
-            float sx = pos.x + sin(time * 0.8f + pos.x) * 15;
-            float sz = 3.0f + sin(time * 3 + pos.x) * 1.5f;
-            DrawCircleV((Vector2){sx, sy}, sz * 4.0f, Fade((Color){160, 205, 240, 255}, 0.15f));
-            DrawCircleV((Vector2){sx, sy}, sz * 2.5f, Fade((Color){195, 225, 250, 255}, 0.3f));
-            DrawCircleV((Vector2){sx, sy}, sz, Fade(WHITE, 0.6f));
-        }
-        
-        DrawRectangleLinesEx((Rectangle){4, 4, screenWidth-8, screenHeight-8}, 4,
-                             Fade((Color){130, 185, 230, 255}, 0.18f + progress * 0.3f));
+    
+    DrawRectangleRec(pauseButton, Fade(GRAY, 0.5f));
+    DrawRectangle(pauseButton.x + 12, pauseButton.y + 10, 6, 20, WHITE);
+    DrawRectangle(pauseButton.x + 22, pauseButton.y + 10, 6, 20, WHITE);
+    
+    if (paused) {
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
+        DrawText("PAUSED", screenWidth/2 - 70, screenHeight/2 - 160, 40, WHITE);
+        DrawRectangleRec(continueButton, Fade(GREEN, 0.8f));
+        DrawText("Continue", continueButton.x + 50, continueButton.y + 12, 24, WHITE);
+        DrawRectangleRec(saveButton, Fade(BLUE, 0.8f));
+        DrawText("Save", saveButton.x + 70, saveButton.y + 12, 24, WHITE);
+        DrawRectangleRec(menuButton, Fade(YELLOW, 0.8f));
+        DrawText("Main Menu", menuButton.x + 40, menuButton.y + 12, 24, WHITE);
+        DrawRectangleRec(quitButton, Fade(RED, 0.8f));
+        DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
     }
+    
     EndDrawing();
 }
 
@@ -970,11 +962,32 @@ void Game::Run() {
     currentLevel = 0;
     currentDifficulty = 0;
     
+    bool hasSave = false;
+    {
+        std::ifstream file("save.json");
+        if (file.is_open()) {
+            json save;
+            file >> save;
+            currentLevel = save["level"];
+            currentDifficulty = save["diff"];
+            score = save["score"];
+            lives = save["lives"];
+            hasSave = true;
+        }
+    }
+    
     bool running = true;
     while (running && !WindowShouldClose()) {
-        // 菜单阶段
         Menu menu;
         menu.Init();
+        
+        if (hasSave) {
+            menu.hasSave = true;
+            menu.savedLevel = currentLevel;
+            menu.savedScore = score;
+            menu.savedLives = lives;
+        }
+        
         while (menu.inMenu && !WindowShouldClose()) {
             menu.Update();
             BeginDrawing();
@@ -985,7 +998,15 @@ void Game::Run() {
         
         if (WindowShouldClose()) break;
         
-        // 根据菜单选择配置游戏
+        if (menu.loadSave) {
+            hasSave = false;
+        } else {
+            currentLevel = menu.selectedLevel;
+            currentDifficulty = menu.selectedDiff;
+            score = 0;
+            lives = config.initialLives;
+        }
+        
         switch (menu.mode) {
             case GameMode::SINGLE_PLAYER:
                 isNetworkGame = false;
@@ -1004,16 +1025,42 @@ void Game::Run() {
                 break;
         }
         
-        // 先设置关卡和难度，再加载图案
-        currentLevel = menu.selectedLevel;
-        currentDifficulty = menu.selectedDiff;
         int startX = (screenWidth - 12 * 43) / 2;
-        bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
+        
+        // 加载关卡布局
+        std::string levelPath = "levels/level" + std::to_string(currentLevel + 1) + ".json";
+        std::vector<std::vector<int>> layout = LoadLevelFromJSON(levelPath);
+        if (!layout.empty()) {
+            bricks.LoadPattern(layout, startX, 100);
+        } else {
+            bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
+        }
+        
+        // 如果是继续存档，恢复砖块状态
+        if (menu.loadSave) {
+            std::ifstream file("save.json");
+            if (file.is_open()) {
+                json save;
+                file >> save;
+                if (save.contains("bricks")) {
+                    int i = 0;
+                    for (auto& act : save["bricks"]) {
+                        bricks.SetBrickActive(i, act.get<bool>());
+                        i++;
+                    }
+                }
+                if (save.contains("paddle_x")) {
+                    paddle.SetPosition({save["paddle_x"], paddle.GetPosition().y});
+                    paddle.SetWidth(save["paddle_w"]);
+                }
+            }
+            state = GameState::WAITING;
+        } else {
+            Reset();
+        }
         
         backToMenu = false;
-        Reset();
         
-        // 游戏主循环
         while (!WindowShouldClose() && !backToMenu) {
             float dt = GetFrameTime();
             
@@ -1697,3 +1744,68 @@ void Game::SpawnParticle(Vector2 pos, Vector2 vel, float life, float size, Color
         }
     }
 }//创建一个新粒子
+//存档
+void Game::SaveProgress() {
+    TraceLog(LOG_INFO, "开始保存...");
+    json save;
+    save["level"] = currentLevel;
+    save["diff"] = currentDifficulty;
+    save["score"] = score;
+    save["lives"] = lives;
+    save["paddle_x"] = paddle.GetPosition().x;
+    save["paddle_w"] = paddle.GetSize().x;
+    
+    json blist = json::array();
+    int n = bricks.GetBrickCount();
+    for (int i = 0; i < n; i++) {
+        blist.push_back(bricks.IsBrickActive(i));
+    }
+    save["bricks"] = blist;
+    
+    std::ofstream file("save.json");
+    file << save.dump(4);
+    TraceLog(LOG_INFO, "存档已保存");
+}
+bool Game::LoadProgress() {
+    std::ifstream file("save.json");
+    if (!file.is_open()) return false;
+    
+    json save;
+    file >> save;
+    currentLevel = save["current_level"];
+    currentDifficulty = save["current_difficulty"];
+    score = save["score"];
+    lives = save["lives"];
+    
+    // 恢复砖块
+    if (save.contains("bricks")) {
+        int count = bricks.GetBrickCount();
+        int i = 0;
+        for (auto& bj : save["bricks"]) {
+            if (i < count) {
+                bricks.SetBrickType(i, bj["type"]);
+            }
+            i++;
+        }
+    }
+    
+    // 恢复球
+    if (save.contains("balls")) {
+        balls.clear();
+        for (auto& bj : save["balls"]) {
+            Ball b;
+            b.SetPosition({bj["x"], bj["y"]});
+            b.SetSpeed({bj["vx"], bj["vy"]});
+            b.Start(bj["vx"], bj["vy"]);
+            balls.push_back(b);
+        }
+    }
+    
+    // 恢复板子
+    if (save.contains("paddle_x")) {
+        paddle.SetPosition({save["paddle_x"], paddle.GetPosition().y});
+        paddle.SetWidth(save["paddle_width"]);
+    }
+    
+    return true;
+}
