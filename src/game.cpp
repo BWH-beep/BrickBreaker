@@ -234,6 +234,8 @@ Game::Game(int width, int height)
     for (int i = 0; i < MAX_PARTICLES; i++) {
         particleActive[i] = false;
     }
+    currentBrickType = 0;
+    editMode = false;
     saveButton = { (float)screenWidth/2 - 100, (float)screenHeight/2 - 100, 200, 50 };
     freezeTimer = 0;
     isFrozen = false;
@@ -345,7 +347,7 @@ void Game::ProcessInput() {
     
     switch (state) {
     case GameState::WAITING:
-        if (IsKeyPressed(KEY_SPACE)) {
+        if (!editMode && IsKeyPressed(KEY_SPACE)) {
             state = GameState::PLAYING;
             for (auto& b : balls) {
                 b.Start(config.ballSpeedX, config.ballSpeedY);
@@ -360,6 +362,20 @@ void Game::ProcessInput() {
             memset(&myState, 0, sizeof(myState));
             myState.paddle2X = paddle.GetPosition().x;
             network.SendGameState(myState);
+        }
+        if (IsKeyPressed(KEY_E)) {
+            editMode = !editMode;
+            if (editMode) {
+                balls.clear();
+            }
+        }
+        if (editMode) {
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) EditClick();
+            if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+                currentBrickType = (currentBrickType + 1) % 4;
+            }
+            if (IsKeyPressed(KEY_S)) SaveEditToJSON();
+            return;
         }
         break;
         
@@ -464,6 +480,7 @@ void Game::Update(float dt) {
     }
 
     if (state == GameState::PLAYING) {
+        if (editMode) return;
         paddle.Update(dt);
 
         if (isNetworkGame && networkMode == NetworkMode::CLIENT) {
@@ -572,7 +589,7 @@ void Game::Update(float dt) {
             }
         }
 
-        if (bricks.AllCleared()) {
+        if (!editMode && bricks.AllCleared()) {
             state = GameState::LEVEL_COMPLETE;
         }
     }
@@ -818,7 +835,6 @@ void Game::Draw() {
         }
     }
     
-    // 冰封特效
     if (isFrozen) {
         float time = GetTime();
         float progress = 1.0f - (freezeTimer / 4.0f);
@@ -954,6 +970,13 @@ void Game::Draw() {
         DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
     }
     
+    if (editMode) {
+        const char* typeNames[] = {"普通", "爆炸", "恶魔", "障碍"};
+        char buf[64];
+        sprintf(buf, "编辑 - %s (右键切换) S保存 E退出", typeNames[currentBrickType]);
+        DrawChineseText(buf, 10, screenHeight - 30, 18, RED);
+    }
+    
     EndDrawing();
 }
 
@@ -1027,36 +1050,47 @@ void Game::Run() {
         
         int startX = (screenWidth - 12 * 43) / 2;
         
-        // 加载关卡布局
-        std::string levelPath = "levels/level" + std::to_string(currentLevel + 1) + ".json";
-        std::vector<std::vector<int>> layout = LoadLevelFromJSON(levelPath);
-        if (!layout.empty()) {
-            bricks.LoadPattern(layout, startX, 100);
+        if (menu.selectedLevel == 3 && !menu.loadSave) {
+            // 自定义关卡：进入编辑模式
+           editMode = true;
+            currentLevel = 3;
+            bricks.clear();
+            state = GameState::PLAYING;
+            balls.clear();
+            score = 0;
+            lives = config.initialLives;
+            powerUps.clear();
         } else {
-            bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
-        }
-        
-        // 如果是继续存档，恢复砖块状态
-        if (menu.loadSave) {
-            std::ifstream file("save.json");
-            if (file.is_open()) {
-                json save;
-                file >> save;
-                if (save.contains("bricks")) {
-                    int i = 0;
-                    for (auto& act : save["bricks"]) {
-                        bricks.SetBrickActive(i, act.get<bool>());
-                        i++;
+            // 加载关卡布局
+            std::string levelPath = "levels/level" + std::to_string(currentLevel + 1) + ".json";
+            std::vector<std::vector<int>> layout = LoadLevelFromJSON(levelPath);
+            if (!layout.empty()) {
+                bricks.LoadPattern(layout, startX, 100);
+            } else {
+                bricks.LoadPattern(g_levelPatterns[currentLevel][currentDifficulty], startX, 100);
+            }
+            
+            if (menu.loadSave) {
+                std::ifstream file("save.json");
+                if (file.is_open()) {
+                    json save;
+                    file >> save;
+                    if (save.contains("bricks")) {
+                        int i = 0;
+                        for (auto& act : save["bricks"]) {
+                            bricks.SetBrickActive(i, act.get<bool>());
+                            i++;
+                        }
+                    }
+                    if (save.contains("paddle_x")) {
+                        paddle.SetPosition({save["paddle_x"], paddle.GetPosition().y});
+                        paddle.SetWidth(save["paddle_w"]);
                     }
                 }
-                if (save.contains("paddle_x")) {
-                    paddle.SetPosition({save["paddle_x"], paddle.GetPosition().y});
-                    paddle.SetWidth(save["paddle_w"]);
-                }
+                state = GameState::WAITING;
+            } else {
+                Reset();
             }
-            state = GameState::WAITING;
-        } else {
-            Reset();
         }
         
         backToMenu = false;
@@ -1748,6 +1782,7 @@ void Game::SpawnParticle(Vector2 pos, Vector2 vel, float life, float size, Color
 void Game::SaveProgress() {
     TraceLog(LOG_INFO, "开始保存...");
     json save;
+    save["v"] = 1;
     save["level"] = currentLevel;
     save["diff"] = currentDifficulty;
     save["score"] = score;
@@ -1772,40 +1807,34 @@ bool Game::LoadProgress() {
     
     json save;
     file >> save;
-    currentLevel = save["current_level"];
-    currentDifficulty = save["current_difficulty"];
+    
+    int version = save.value("v", 0);
+    
+    currentLevel = save["level"];
+    currentDifficulty = save["diff"];
     score = save["score"];
     lives = save["lives"];
     
-    // 恢复砖块
-    if (save.contains("bricks")) {
-        int count = bricks.GetBrickCount();
-        int i = 0;
-        for (auto& bj : save["bricks"]) {
-            if (i < count) {
-                bricks.SetBrickType(i, bj["type"]);
-            }
-            i++;
-        }
-    }
-    
-    // 恢复球
-    if (save.contains("balls")) {
-        balls.clear();
-        for (auto& bj : save["balls"]) {
-            Ball b;
-            b.SetPosition({bj["x"], bj["y"]});
-            b.SetSpeed({bj["vx"], bj["vy"]});
-            b.Start(bj["vx"], bj["vy"]);
-            balls.push_back(b);
-        }
-    }
-    
-    // 恢复板子
     if (save.contains("paddle_x")) {
         paddle.SetPosition({save["paddle_x"], paddle.GetPosition().y});
-        paddle.SetWidth(save["paddle_width"]);
+        paddle.SetWidth(save["paddle_w"]);
     }
     
     return true;
+}
+void Game::ToggleEditMode() {
+    editMode = !editMode;
+    if (editMode) {
+        state = GameState::PLAYING;
+        balls.clear();
+    }
+}
+
+void Game::EditClick() {
+    TraceLog(LOG_INFO, "EditClick called");
+    Vector2 mouse = GetMousePosition();
+    bricks.ToggleBrickAt(mouse.x, mouse.y, 22.0f, 14.0f, 2.0f, 100.0f, currentBrickType);
+}
+void Game::SaveEditToJSON() {
+    bricks.SaveLayoutToJSON("levels/custom.json", 22.0f, 14.0f, 2.0f, 100.0f);
 }

@@ -2,6 +2,10 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <string>
+#include <fstream>
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 BrickManager::BrickManager(int width) {
     InitGrid(width, 600);  // 初始化网格
@@ -379,4 +383,86 @@ void BrickManager::BuildGrid() {
             grid[gx][gy].push_back(idx);
         }
     }
+}
+//编辑模式
+void BrickManager::ToggleBrickAt(float mouseX, float mouseY, float brickW, float brickH, float gap, float offsetY) {
+    int col = (int)(mouseX / (brickW + gap));
+    int row = (int)((mouseY - offsetY) / (brickH + gap));
+    
+    for (auto& brick : bricks) {
+        int bc = (int)(brick.x / (brickW + gap));
+        int br = (int)((brick.y - offsetY) / (brickH + gap));
+        if (bc == col && br == row) {
+            brick.active = !brick.active;
+            return;
+        }
+    }
+    
+    Brick b;
+    b.x = col * (brickW + gap);
+    b.y = offsetY + row * (brickH + gap);
+    b.width = brickW;
+    b.height = brickH;
+    b.active = true;
+    b.color = RED;
+    b.isEvil = false;
+    b.isExplosive = false;
+    b.indestructible = false;
+    bricks.push_back(b);
+}
+
+void BrickManager::SaveLayoutToJSON(const std::string& path, float brickW, float brickH, float gap, float offsetY) {
+    int maxRow = 0, maxCol = 0;
+    for (auto& b : bricks) {
+        int r = (int)((b.y - offsetY) / (brickH + gap));
+        int c = (int)(b.x / (brickW + gap));
+        if (r > maxRow) maxRow = r;
+        if (c > maxCol) maxCol = c;
+    }
+    
+    json j;
+    for (int r = 0; r <= maxRow; r++) {
+        json row;
+        for (int c = 0; c <= maxCol; c++) {
+            bool found = false;
+            for (auto& b : bricks) {
+                int br = (int)((b.y - offsetY) / (brickH + gap));
+                int bc = (int)(b.x / (brickW + gap));
+                if (br == r && bc == c && b.active) { row.push_back(1); found = true; break; }
+            }
+            if (!found) row.push_back(0);
+        }
+        j.push_back(row);
+    }
+    
+    std::ofstream file(path);
+    file << json{{"layout", j}}.dump(4);
+}
+void BrickManager::ToggleBrickAt(float mouseX, float mouseY, float brickW, float brickH, float gap, float offsetY, int type) {
+    int col = (int)(mouseX / (brickW + gap));
+    int row = (int)((mouseY - offsetY) / (brickH + gap));
+    
+    for (auto& brick : bricks) {
+        int bc = (int)(brick.x / (brickW + gap));
+        int br = (int)((brick.y - offsetY) / (brickH + gap));
+        if (bc == col && br == row) {
+            brick.active = !brick.active;
+            return;
+        }
+    }
+    
+    Brick b;
+    b.x = col * (brickW + gap);
+    b.y = offsetY + row * (brickH + gap);
+    b.width = brickW;
+    b.height = brickH;
+    b.active = true;
+    b.isEvil = (type == 2);
+    b.isExplosive = (type == 1);
+    b.indestructible = (type == 3);
+    if (type == 2) b.color = BLACK;
+    else if (type == 3) b.color = GRAY;
+    else if (type == 1) b.color = ORANGE;
+    else b.color = RED;
+    bricks.push_back(b);
 }

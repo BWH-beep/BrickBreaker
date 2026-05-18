@@ -119,6 +119,11 @@ private:
     float shakeTime;
 
 public:
+    int currentBrickType;  // 0普通 1爆炸 2恶魔 3障碍
+    bool editMode;
+    void ToggleEditMode();
+    void EditClick();
+    void SaveEditToJSON();//编辑
     void StartAsyncLoad(int level, int difficulty);
     void CheckAsyncLoad();
     Game(int width, int height);

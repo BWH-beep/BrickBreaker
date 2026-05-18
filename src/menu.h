@@ -83,13 +83,17 @@ struct Menu {
         
         if (choosingLevel) {
             if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-                selectedLevel = (selectedLevel - 1 + 3) % 3;
+                selectedLevel = (selectedLevel - 1 + 4) % 4;
             }
             if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-                selectedLevel = (selectedLevel + 1) % 3;
+                selectedLevel = (selectedLevel + 1) % 4;
             }
             if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
-                choosingLevel = false;
+                if (selectedLevel == 3) {
+                    inMenu = false;  // 自定义关卡直接开始
+                } else {
+                    choosingLevel = false;
+                }
             }
         } else {
             if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
@@ -153,14 +157,14 @@ struct Menu {
         
         if (choosingLevel) {
             DrawTextEx(font, isChinese ? "选择关卡:" : "Select Level:", (Vector2){250, 200}, 32, 2, WHITE);
-            const char* levelsCN[] = { "第一关 - 爱心", "第二关 - 猫咪", "第三关 - 蝴蝶" };
-            const char* levelsEN[] = { "Level 1 - Heart", "Level 2 - Cat", "Level 3 - Butterfly" };
+            const char* levelsCN[] = { "第一关 - 爱心", "第二关 - 猫咪", "第三关 - 蝴蝶", "自定义关卡" };
+            const char* levelsEN[] = { "Level 1 - Heart", "Level 2 - Cat", "Level 3 - Butterfly", "Custom Level" };
             const char** levels = isChinese ? levelsCN : levelsEN;
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 4; i++) {
                 Color c = (selectedLevel == i) ? YELLOW : (Color){200,200,200,255};
                 DrawTextEx(font, levels[i], (Vector2){250, 260 + i * 55}, 30, 2, c);
             }
-            DrawTextEx(font, isChinese ? "ENTER 确认关卡" : "ENTER to confirm", (Vector2){300, 450}, 22, 2, GRAY);
+            DrawTextEx(font, isChinese ? "ENTER 确认关卡" : "ENTER to confirm", (Vector2){300, 490}, 22, 2, GRAY);
         } else {
             DrawTextEx(font, isChinese ? "选择难度:" : "Select Difficulty:", (Vector2){250, 200}, 32, 2, WHITE);
             const char* diffsCN[] = { "简单", "普通", "困难" };

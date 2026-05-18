@@ -3,6 +3,7 @@
 
 #include "raylib.h"
 #include <vector>
+#include <string>
 
 struct Particle {
     Vector2 pos;
@@ -41,6 +42,10 @@ private:
     int screenWidth;
 
 public:
+    void clear() { bricks.clear(); }
+    void ToggleBrickAt(float mouseX, float mouseY, float brickW, float brickH, float gap, float offsetY, int type);
+    void ToggleBrickAt(float mouseX, float mouseY, float brickW, float brickH, float gap, float offsetY);
+    void SaveLayoutToJSON(const std::string& path, float brickW, float brickH, float gap, float offsetY);//用来编辑模式
     void InitGrid(int screenW, int screenH);  // 初始化网格参数
     void LoadPattern(const std::vector<std::vector<int>>& pattern, int offsetX, int offsetY);
     Color GetBrickColor(int index) const { return bricks[index].color; }
