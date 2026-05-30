@@ -123,24 +123,45 @@ struct Menu {
             isChinese = !isChinese;
         }
     }
-    
-    void Draw(Font font) {
+        void Draw(Font font) {
+        // 漂浮粒子背景
+        static std::vector<Vector2> particles;
+        static bool init = false;
+        if (!init) {
+            for (int i = 0; i < 20; i++) {
+                particles.push_back({(float)GetRandomValue(0, 800), (float)GetRandomValue(0, 600)});
+            }
+            init = true;
+        }
+        float time = GetTime();
+        for (auto& p : particles) {
+            p.y += 0.3f;
+            if (p.y > 600) p.y = -10;
+            float alpha = 0.3f + sin(time * 2.0f + p.x) * 0.15f;
+            DrawCircleV(p, 2.5f, Fade((Color){255, 255, 200, 255}, alpha));
+        }
+        
         static Texture2D menuBg = LoadTexture("assets/images/menu_bg.png");
-    DrawTexturePro(menuBg, (Rectangle){0, 0, (float)menuBg.width, (float)menuBg.height}, 
-               (Rectangle){0, 0, 800, 600}, (Vector2){0, 0}, 0, WHITE);
-    DrawRectangle(0, 0, 800, 600, Fade(BLACK, 0.7f));
+        DrawTexturePro(menuBg, (Rectangle){0, 0, (float)menuBg.width, (float)menuBg.height}, 
+                   (Rectangle){0, 0, 800, 600}, (Vector2){0, 0}, 0, WHITE);
+        DrawRectangle(0, 0, 800, 600, Fade(BLACK, 0.7f));
         
         const char* title = isChinese ? "弹球风暴" : "BRICK BREAKER";
         Vector2 titleSize = MeasureTextEx(font, title, 70, 2);
         DrawTextEx(font, title, (Vector2){400 - titleSize.x/2, 30}, 70, 2, YELLOW);
+        
+        Vector2 mouse = GetMousePosition();
         
         DrawTextEx(font, isChinese ? "游戏模式:" : "Game Mode:", (Vector2){60, 120}, 28, 2, WHITE);
         const char* modesCN[] = { "单人", "主机", "客户端" };
         const char* modesEN[] = { "Single", "Host", "Client" };
         const char** modes = isChinese ? modesCN : modesEN;
         for (int i = 0; i < 3; i++) {
+            Rectangle btnRect = {300.0f + i * 140.0f - 5, 118.0f, 100.0f, 28.0f};
+            bool hover = CheckCollisionPointRec(mouse, btnRect);
             Color c = (selectedMode == i) ? YELLOW : (Color){180,180,180,255};
-            DrawTextEx(font, modes[i], (Vector2){300 + i * 140, 120}, 26, 2, c);
+            if (hover) c = (Color){255, 255, 255, 255};
+            DrawTextEx(font, modes[i], (Vector2){300 + i * 140.0f, 120}, 26, 2, c);
         }
         
         DrawLine(60, 170, 740, 170, Fade(GRAY, 0.4f));
@@ -151,8 +172,16 @@ struct Menu {
             sprintf(buf, isChinese ? "关卡: %d  分数: %d  生命: %d" : "Level: %d  Score: %d  Lives: %d", savedLevel + 1, savedScore, savedLives);
             DrawTextEx(font, buf, (Vector2){220, 250}, 22, 2, GRAY);
             
-            DrawTextEx(font, isChinese ? "新游戏" : "New Game", (Vector2){300, 320}, 30, 2, mainMenuChoice == 0 ? YELLOW : (Color){200,200,200,255});
-            DrawTextEx(font, isChinese ? "继续存档" : "Continue", (Vector2){300, 370}, 30, 2, mainMenuChoice == 1 ? YELLOW : (Color){200,200,200,255});
+            Rectangle newBtn = {270, 310, 140, 35};
+            Rectangle contBtn = {270, 360, 140, 35};
+            bool hoverNew = CheckCollisionPointRec(mouse, newBtn);
+            bool hoverCont = CheckCollisionPointRec(mouse, contBtn);
+            Color cNew = mainMenuChoice == 0 ? YELLOW : (Color){200,200,200,255};
+            Color cCont = mainMenuChoice == 1 ? YELLOW : (Color){200,200,200,255};
+            if (hoverNew) cNew = WHITE;
+            if (hoverCont) cCont = WHITE;
+            DrawTextEx(font, isChinese ? "新游戏" : "New Game", (Vector2){300, 320}, 30, 2, cNew);
+            DrawTextEx(font, isChinese ? "继续存档" : "Continue", (Vector2){300, 370}, 30, 2, cCont);
             
             DrawTextEx(font, isChinese ? "上下键选择  ENTER 确认" : "UP/DOWN to Select  ENTER to Confirm", (Vector2){230, 450}, 22, 2, GRAY);
             DrawTextEx(font, isChinese ? "<- -> 切换模式  按 L 切换语言" : "<- -> Change Mode  Press L for Language", (Vector2){200, 500}, 20, 2, GRAY);
@@ -165,8 +194,11 @@ struct Menu {
             const char* levelsEN[] = { "Level 1 - Heart", "Level 2 - Cat", "Level 3 - Butterfly", "Custom Level" };
             const char** levels = isChinese ? levelsCN : levelsEN;
             for (int i = 0; i < 4; i++) {
+                Rectangle btnRect = {220.0f, 255.0f + i * 55.0f, 350.0f, 32.0f};
+                bool hover = CheckCollisionPointRec(mouse, btnRect);
                 Color c = (selectedLevel == i) ? YELLOW : (Color){200,200,200,255};
-                DrawTextEx(font, levels[i], (Vector2){250, 260 + i * 55}, 30, 2, c);
+                if (hover) c = (Color){255, 255, 255, 255};
+                DrawTextEx(font, levels[i], (Vector2){250, 260 + i * 55.0f}, 30, 2, c);
             }
             DrawTextEx(font, isChinese ? "ENTER 确认关卡" : "ENTER to confirm", (Vector2){300, 490}, 22, 2, GRAY);
         } else {
@@ -175,8 +207,11 @@ struct Menu {
             const char* diffsEN[] = { "Easy", "Normal", "Hard" };
             const char** diffs = isChinese ? diffsCN : diffsEN;
             for (int i = 0; i < 3; i++) {
+                Rectangle btnRect = {290.0f, 255.0f + i * 55.0f, 200.0f, 32.0f};
+                bool hover = CheckCollisionPointRec(mouse, btnRect);
                 Color c = (selectedDiff == i) ? YELLOW : (Color){200,200,200,255};
-                DrawTextEx(font, diffs[i], (Vector2){320, 260 + i * 55}, 30, 2, c);
+                if (hover) c = (Color){255, 255, 255, 255};
+                DrawTextEx(font, diffs[i], (Vector2){320, 260 + i * 55.0f}, 30, 2, c);
             }
             DrawTextEx(font, isChinese ? "ENTER 开始 | ESC 返回" : "ENTER Start | ESC Back", (Vector2){260, 450}, 22, 2, GRAY);
         }
@@ -184,8 +219,5 @@ struct Menu {
         DrawTextEx(font, isChinese ? "语言: 中文 | 按 L" : "Lang: EN | Press L", (Vector2){40, 520}, 20, 2, GRAY);
         DrawTextEx(font, isChinese ? "<- -> 切换模式" : "<- -> Change Mode", (Vector2){200, 570}, 22, 2, GRAY);
     }
-    
-    int GetBrickRows() { return 5; }
 };
-
 #endif
