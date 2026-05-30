@@ -1010,7 +1010,7 @@ void Game::Run() {
     bool running = true;
     while (running && !WindowShouldClose()) {
         Menu menu;
-        menu.Init(isChinese);
+        menu.Init();
         if (hasSave) {
             menu.hasSave = true;
             menu.savedLevel = currentLevel;
@@ -1058,8 +1058,7 @@ void Game::Run() {
         int startX = (screenWidth - 12 * 43) / 2;
         
         if (menu.selectedLevel == 3 && !menu.loadSave) {
-            // 自定义关卡：进入编辑模式
-           editMode = true;
+            editMode = true;
             currentLevel = 3;
             bricks.clear();
             state = GameState::PLAYING;
@@ -1068,7 +1067,6 @@ void Game::Run() {
             lives = config.initialLives;
             powerUps.clear();
         } else {
-            // 加载关卡布局
             std::string levelPath = "levels/level" + std::to_string(currentLevel + 1) + ".json";
             std::vector<std::vector<int>> layout = LoadLevelFromJSON(levelPath);
             if (!layout.empty()) {
@@ -1085,7 +1083,7 @@ void Game::Run() {
                     if (save.contains("bricks")) {
                         int i = 0;
                         for (auto& act : save["bricks"]) {
-                            bricks.SetBrickActive(i, act.get<bool>());
+                            bricks.SetBrickType(i, act.get<int>());
                             i++;
                         }
                     }
@@ -1799,7 +1797,12 @@ void Game::SaveProgress() {
     json blist = json::array();
     int n = bricks.GetBrickCount();
     for (int i = 0; i < n; i++) {
-        blist.push_back(bricks.IsBrickActive(i));
+        int t = 1;
+        if (!bricks.IsBrickActive(i)) t = 0;
+        else if (bricks.IsBrickExplosive(i)) t = 2;
+        else if (bricks.IsBrickEvil(i)) t = 3;
+        else if (bricks.IsBrickIndestructible(i)) t = 4;
+        blist.push_back(t);
     }
     save["bricks"] = blist;
     

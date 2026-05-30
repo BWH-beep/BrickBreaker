@@ -48,7 +48,7 @@ struct Menu {
         savedLives = 3;
         inMainMenu = true;
         mainMenuChoice = 0;
-        isChinese = chinese;
+        isChinese = false;
     }
     
     void Update() {

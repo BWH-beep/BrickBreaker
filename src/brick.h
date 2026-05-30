@@ -52,6 +52,7 @@ public:
     void SetBrickColor(int index, Color c) { if (index < (int)bricks.size()) bricks[index].color = c; }
     bool IsBrickExplosive(int index) const { return bricks[index].isExplosive; }
     bool IsBrickEvil(int index) const { return bricks[index].isEvil; }
+    bool IsBrickIndestructible(int index) const { return bricks[index].indestructible; }
     void SetBrickType(int index, int type) {
         if (index < (int)bricks.size()) {
             bricks[index].active = (type != 0);
