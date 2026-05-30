@@ -16,7 +16,7 @@ void Ball::Reset() {
     trail.clear();
     
     // ========== 强制无敌测试 ==========
-    invincible = true;
+    invincible = false;
     invincibleTimer = 0.0f;  // 很长时间
     radius = 12;  // 明显变大
     // ================================

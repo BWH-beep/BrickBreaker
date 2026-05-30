@@ -41,6 +41,7 @@ struct FloatingText {
 
 class Game {
 private:
+    bool isChinese;
     Rectangle saveButton;
     void SaveProgress();
     bool LoadProgress();//存档

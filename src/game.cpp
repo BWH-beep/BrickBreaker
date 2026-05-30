@@ -231,6 +231,7 @@ bool LineRectCollision(Vector2 start, Vector2 end, Rectangle rect, Vector2& hitP
 Game::Game(int width, int height)
     : screenWidth(width), screenHeight(height), paddle(width, height), bricks(width)
 {
+    isChinese = false;
     for (int i = 0; i < MAX_PARTICLES; i++) {
         particleActive[i] = false;
     }
@@ -552,8 +553,8 @@ void Game::Update(float dt) {
                 if (dropPowerUp) {
                     int type;
                     int rand = GetRandomValue(0, 100);
-                    if (rand < 15) type = 5;
-                    else if (rand < 35) type = 2;
+                    if (rand < 8) type = 5;
+                    else if (rand < 48) type = 2;
                     else if (rand < 50) type = 0;
                     else if (rand < 55) type = 3;
                     else if (rand < 75) type = 4;
@@ -959,17 +960,24 @@ void Game::Draw() {
     
     if (paused) {
         DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.7f));
-        DrawText("PAUSED", screenWidth/2 - 70, screenHeight/2 - 160, 40, WHITE);
+        DrawChineseText(isChinese ? "暂停" : "PAUSED", screenWidth/2 - 40, screenHeight/2 - 160, 40, WHITE);
+        
         DrawRectangleRec(continueButton, Fade(GREEN, 0.8f));
-        DrawText("Continue", continueButton.x + 50, continueButton.y + 12, 24, WHITE);
+        const char* contText = isChinese ? "继续" : "Continue";
+        DrawChineseText(contText, continueButton.x + (continueButton.width - MeasureText(contText, 24))/2, continueButton.y + 12, 24, WHITE);
+        
         DrawRectangleRec(saveButton, Fade(BLUE, 0.8f));
-        DrawText("Save", saveButton.x + 70, saveButton.y + 12, 24, WHITE);
+        const char* saveText = isChinese ? "保存" : "Save";
+        DrawChineseText(saveText, saveButton.x + (saveButton.width - MeasureText(saveText, 24))/2, saveButton.y + 12, 24, WHITE);
+        
         DrawRectangleRec(menuButton, Fade(YELLOW, 0.8f));
-        DrawText("Main Menu", menuButton.x + 40, menuButton.y + 12, 24, WHITE);
+        const char* menuText = isChinese ? "主菜单" : "Main Menu";
+        DrawChineseText(menuText, menuButton.x + (menuButton.width - MeasureText(menuText, 24))/2, menuButton.y + 12, 24, WHITE);
+        
         DrawRectangleRec(quitButton, Fade(RED, 0.8f));
-        DrawText("Quit", quitButton.x + 70, quitButton.y + 12, 24, WHITE);
+        const char* quitText = isChinese ? "返回" : "Quit";
+        DrawChineseText(quitText, quitButton.x + (quitButton.width - MeasureText(quitText, 24))/2, quitButton.y + 12, 24, WHITE);
     }
-    
     if (editMode) {
         const char* typeNames[] = {"普通", "爆炸", "恶魔", "障碍"};
         char buf[64];
@@ -1002,8 +1010,7 @@ void Game::Run() {
     bool running = true;
     while (running && !WindowShouldClose()) {
         Menu menu;
-        menu.Init();
-        
+        menu.Init(isChinese);
         if (hasSave) {
             menu.hasSave = true;
             menu.savedLevel = currentLevel;
@@ -1020,6 +1027,7 @@ void Game::Run() {
         }
         
         if (WindowShouldClose()) break;
+        isChinese = menu.isChinese;
         
         if (menu.loadSave) {
             hasSave = false;
@@ -1047,7 +1055,6 @@ void Game::Run() {
                 network.InitAsClient("127.0.0.1");
                 break;
         }
-        
         int startX = (screenWidth - 12 * 43) / 2;
         
         if (menu.selectedLevel == 3 && !menu.loadSave) {
@@ -1102,7 +1109,6 @@ void Game::Run() {
                 network.Update();
                 UpdateNetwork();
             }
-            
             if (isLoading.load()) {
                 CheckAsyncLoad();
                 Draw();

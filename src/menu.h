@@ -48,6 +48,7 @@ struct Menu {
         savedLives = 3;
         inMainMenu = true;
         mainMenuChoice = 0;
+        isChinese = chinese;
     }
     
     void Update() {
@@ -124,9 +125,12 @@ struct Menu {
     }
     
     void Draw(Font font) {
-        DrawRectangle(0, 0, 800, 600, Fade(BLACK, 0.95f));
+        static Texture2D menuBg = LoadTexture("assets/images/menu_bg.png");
+    DrawTexturePro(menuBg, (Rectangle){0, 0, (float)menuBg.width, (float)menuBg.height}, 
+               (Rectangle){0, 0, 800, 600}, (Vector2){0, 0}, 0, WHITE);
+    DrawRectangle(0, 0, 800, 600, Fade(BLACK, 0.7f));
         
-        const char* title = "BRICK BREAKER";
+        const char* title = isChinese ? "弹球风暴" : "BRICK BREAKER";
         Vector2 titleSize = MeasureTextEx(font, title, 70, 2);
         DrawTextEx(font, title, (Vector2){400 - titleSize.x/2, 30}, 70, 2, YELLOW);
         
