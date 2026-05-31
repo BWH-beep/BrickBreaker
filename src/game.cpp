@@ -1705,7 +1705,7 @@ void Game::StartAsyncLoad(int level, int difficulty) {
     // 同时启动 3 个异步任务
     /*for (int i = 0; i < totalTasks; i++) {
         std::thread([this](int taskId) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
             /*std::this_thread::sleep_for(std::chrono::milliseconds(50 + taskId * 15));*/
            /*std::string msg = "资源" + std::to_string(taskId + 1) + " 加载完成";
             loadQueue.push(msg);
@@ -1714,7 +1714,7 @@ void Game::StartAsyncLoad(int level, int difficulty) {
     // 一个后台线程，逐步完成 20 个任务，测试用
     std::thread([this]() {
         for (int i = 0; i < totalTasks; i++) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
             loadQueue.push("task");
         }
     }).detach();
